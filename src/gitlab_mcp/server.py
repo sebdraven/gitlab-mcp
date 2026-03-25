@@ -2438,9 +2438,11 @@ async def async_main(
         """Execute a GitLab tool by name with the provided arguments."""
         from mcp.types import TextContent
 
-        # Route tool calls to appropriate functions
+        # Route tool calls to appropriate functions (allowlist check)
+        if name not in tools.__all__:
+            raise ValueError(f"Unknown tool: {name}")
         tool_func = getattr(tools, name, None)
-        if tool_func is None:
+        if tool_func is None or not callable(tool_func):
             raise ValueError(f"Unknown tool: {name}")
 
         try:

@@ -370,12 +370,12 @@ async def execute_tool(
         return result
     except TypeError as e:
         return {
-            "error": f"Invalid arguments for {tool_name}: {e!s}",
+            "error": f"Invalid arguments for {tool_name}",
             "hint": "Use get_tool_schema() to see required parameters",
         }
-    except Exception as e:
+    except Exception:
         return {
-            "error": f"Tool execution failed: {e!s}",
+            "error": f"Error executing {tool_name}: operation failed",
             "tool": tool_name,
         }
 

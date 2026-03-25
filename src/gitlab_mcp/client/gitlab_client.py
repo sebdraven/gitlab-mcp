@@ -85,6 +85,7 @@ class GitLabClient:
                 url=self.config.gitlab_url,
                 private_token=self.config.gitlab_token.get_secret_value(),
                 timeout=self.config.timeout,
+                ssl_verify=self.config.verify_ssl,
             )
 
             # Authenticate
