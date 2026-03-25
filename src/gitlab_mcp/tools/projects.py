@@ -21,6 +21,8 @@ from gitlab_mcp.client.gitlab_client import GitLabClient
 async def list_projects(
     client: GitLabClient,
     visibility: str | None = None,
+    owned: bool | None = None,
+    membership: bool | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> dict[str, Any]:
@@ -30,6 +32,8 @@ async def list_projects(
     Args:
         client: Authenticated GitLabClient instance
         visibility: Filter by visibility (public, internal, private)
+        owned: Limit to projects owned by the current user
+        membership: Limit to projects where user is a member
         page: Page number for pagination
         per_page: Results per page (max 100)
 
@@ -39,6 +43,8 @@ async def list_projects(
     await asyncio.sleep(0)  # Allow event loop to process other tasks
     return client.list_projects(
         visibility=visibility,
+        owned=owned,
+        membership=membership,
         page=page,
         per_page=per_page,
     )

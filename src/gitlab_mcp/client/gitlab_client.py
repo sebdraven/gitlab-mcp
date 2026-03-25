@@ -705,6 +705,8 @@ class GitLabClient:
     def list_projects(
         self,
         visibility: str | None = None,
+        owned: bool | None = None,
+        membership: bool | None = None,
         page: int = 1,
         per_page: int = 20,
     ) -> dict[str, Any]:
@@ -713,6 +715,8 @@ class GitLabClient:
 
         Args:
             visibility: Filter by visibility (public, private, internal)
+            owned: Limit to projects owned by the current user
+            membership: Limit to projects where user is a member
             page: Page number for pagination (default: 1)
             per_page: Results per page (default: 20, max: 100)
 
@@ -732,10 +736,17 @@ class GitLabClient:
         self._ensure_authenticated()
 
         try:
+            # Build kwargs for GitLab API call
+            kwargs: dict[str, Any] = {"page": page, "per_page": per_page}
+            if visibility is not None:
+                kwargs["visibility"] = visibility
+            if owned is not None:
+                kwargs["owned"] = owned
+            if membership is not None:
+                kwargs["membership"] = membership
+
             # Get projects from GitLab
-            projects = self._gitlab.projects.list(  # type: ignore
-                visibility=visibility, page=page, per_page=per_page
-            )
+            projects = self._gitlab.projects.list(**kwargs)  # type: ignore
 
             # Convert project objects to dictionaries
             project_dicts = []
