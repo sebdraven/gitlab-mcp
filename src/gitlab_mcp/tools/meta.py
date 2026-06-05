@@ -217,6 +217,14 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "unprotect_tag",
         ],
     },
+    "search": {
+        "description": "Cross-cutting search (instance / group / project)",
+        "tools": [
+            "search_globally",
+            "search_in_group",
+            "search_in_project",
+        ],
+    },
 }
 
 

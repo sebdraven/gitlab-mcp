@@ -201,15 +201,15 @@ class TestServerToolRegistration:
         assert callable(server.register_all_tools)
 
     def test_register_all_tools_adds_67_tools(self, server):
-        """Test that register_all_tools registers all 118 tools."""
+        """Test that register_all_tools registers all 121 tools."""
         # Initially no tools
         assert len(server._tools) == 0
 
         # Register all tools
         server.register_all_tools()
 
-        # Should have 118 tools registered
-        assert len(server._tools) == 118
+        # Should have 121 tools registered
+        assert len(server._tools) == 121
 
     def test_all_registered_tools_have_descriptions(self, server):
         """Test that all registered tools have descriptions."""
@@ -280,8 +280,8 @@ class TestToolCounts:
     """Test that we have the expected number of tools in each category."""
 
     def test_total_tool_count(self):
-        """Test that __all__ has 122 total exports."""
-        # Total MCP tools: 118
+        """Test that __all__ has 125 total exports."""
+        # Total MCP tools: 121
         # Context: 1 (get_current_context)
         # Repos: 3 (list_repository_tree, get_file_contents, search_code)
         # Issues: 3 (list_issues, get_issue, create_issue)
@@ -299,6 +299,7 @@ class TestToolCounts:
         # Runners (project-level): 5 (list, get, enable, disable, update)
         # CI Lint: 2 (lint_ci_yaml, validate_project_ci_config)
         # Protected refs: 9 (5 branches + 4 tags)
+        # Search: 3 (global, in_group, in_project)
         # Meta-tools (slim mode): 4 (discover_tools, get_tool_schema, execute_tool, TOOL_CATEGORIES)
-        # Total: 122 tools (118 regular + 4 meta-tools)
-        assert len(tools.__all__) == 122
+        # Total: 125 tools (121 regular + 4 meta-tools)
+        assert len(tools.__all__) == 125
