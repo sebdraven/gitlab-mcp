@@ -715,6 +715,265 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Environments (project-level) ----
+
+    def list_environments(
+        self,
+        project_id: str | int,
+        name: str | None = None,
+        search: str | None = None,
+        states: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List deployment environments of a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Filter by exact environment name (optional)
+            search: Filter by name substring, minimum 3 chars (optional)
+            states: Filter by state - 'available', 'stopping', or 'stopped' (optional)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of environment dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read environments
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {"page": page, "per_page": per_page}
+            if name is not None:
+                kwargs["name"] = name
+            if search is not None:
+                kwargs["search"] = search
+            if states is not None:
+                kwargs["states"] = states
+            environments = project.environments.list(**kwargs)
+            return [
+                e.asdict() if hasattr(e, "asdict") else dict(e.attributes)
+                for e in environments
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_environment(
+        self,
+        project_id: str | int,
+        environment_id: int,
+    ) -> dict[str, Any]:
+        """
+        Get a single environment by ID.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            environment_id: Environment ID
+
+        Returns:
+            Environment dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or environment doesn't exist
+            PermissionError: If user can't read environments
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            environment = project.environments.get(environment_id)
+            if hasattr(environment, "asdict"):
+                return environment.asdict()
+            return dict(environment.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def create_environment(
+        self,
+        project_id: str | int,
+        name: str,
+        external_url: str | None = None,
+        tier: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new environment.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Environment name (required)
+            external_url: External URL of the environment (optional)
+            tier: Environment tier - 'production', 'staging', 'testing',
+                'development', or 'other' (optional, GitLab 16.0+)
+
+        Returns:
+            Created environment dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't manage environments
+            GitLabAPIError: If API call fails (e.g., name already exists)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {"name": name}
+            if external_url is not None:
+                data["external_url"] = external_url
+            if tier is not None:
+                data["tier"] = tier
+
+            environment = project.environments.create(data)
+            if hasattr(environment, "asdict"):
+                return environment.asdict()
+            return dict(environment.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_environment(
+        self,
+        project_id: str | int,
+        environment_id: int,
+        external_url: str | None = None,
+        tier: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing environment. Only fields explicitly provided are sent.
+
+        Note: the `name` of an environment is immutable via the API.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            environment_id: Environment ID
+            external_url: New external URL (optional)
+            tier: New tier - 'production', 'staging', 'testing',
+                'development', or 'other' (optional)
+
+        Returns:
+            Updated environment dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or environment doesn't exist
+            PermissionError: If user can't manage environments
+            GitLabAPIError: If no update fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {}
+            if external_url is not None:
+                data["external_url"] = external_url
+            if tier is not None:
+                data["tier"] = tier
+
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            result = project.environments.update(environment_id, data)
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_environment(
+        self,
+        project_id: str | int,
+        environment_id: int,
+    ) -> dict[str, str]:
+        """
+        Delete an environment.
+
+        Note: an environment must be stopped before it can be deleted.
+        Use stop_environment first if the environment is in 'available' state.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            environment_id: Environment ID
+
+        Returns:
+            Dictionary {"status": "deleted", "project_id": "<id>", "environment_id": <id>}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or environment doesn't exist
+            PermissionError: If user can't manage environments
+            GitLabAPIError: If API call fails (e.g., env not stopped)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            project.environments.delete(environment_id)
+            return {
+                "status": "deleted",
+                "project_id": str(project_id),
+                "environment_id": str(environment_id),
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def stop_environment(
+        self,
+        project_id: str | int,
+        environment_id: int,
+    ) -> dict[str, Any]:
+        """
+        Stop an environment (transition state to 'stopped'). Reversible.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            environment_id: Environment ID
+
+        Returns:
+            Updated environment dictionary (state will be 'stopping' or 'stopped')
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or environment doesn't exist
+            PermissionError: If user can't manage environments
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            environment = project.environments.get(environment_id)
+            environment.stop()
+            # Refresh state after the stop action
+            environment = project.environments.get(environment_id)
+            if hasattr(environment, "asdict"):
+                return environment.asdict()
+            return dict(environment.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,

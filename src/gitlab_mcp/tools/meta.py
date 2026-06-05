@@ -175,6 +175,17 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "delete_project_variable",
         ],
     },
+    "environments": {
+        "description": "Project-level deployment environments",
+        "tools": [
+            "list_environments",
+            "get_environment",
+            "create_environment",
+            "update_environment",
+            "delete_environment",
+            "stop_environment",
+        ],
+    },
 }
 
 
