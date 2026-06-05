@@ -47,6 +47,21 @@ from gitlab_mcp.tools.groups import (
     list_groups,
 )
 
+# Webhook tools (project + group)
+from gitlab_mcp.tools.hooks import (
+    create_group_hook,
+    create_project_hook,
+    delete_group_hook,
+    delete_project_hook,
+    get_group_hook,
+    get_project_hook,
+    list_group_hooks,
+    list_project_hooks,
+    test_project_hook,
+    update_group_hook,
+    update_project_hook,
+)
+
 # Issue tools
 from gitlab_mcp.tools.issues import (
     add_issue_comment,
@@ -360,6 +375,18 @@ __all__ = [
     "search_globally",
     "search_in_group",
     "search_in_project",
+    # Webhooks (project + group)
+    "list_project_hooks",
+    "get_project_hook",
+    "create_project_hook",
+    "update_project_hook",
+    "delete_project_hook",
+    "test_project_hook",
+    "list_group_hooks",
+    "get_group_hook",
+    "create_group_hook",
+    "update_group_hook",
+    "delete_group_hook",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

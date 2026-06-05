@@ -225,6 +225,22 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "search_in_project",
         ],
     },
+    "hooks": {
+        "description": "Webhooks (project + group)",
+        "tools": [
+            "list_project_hooks",
+            "get_project_hook",
+            "create_project_hook",
+            "update_project_hook",
+            "delete_project_hook",
+            "test_project_hook",
+            "list_group_hooks",
+            "get_group_hook",
+            "create_group_hook",
+            "update_group_hook",
+            "delete_group_hook",
+        ],
+    },
 }
 
 
