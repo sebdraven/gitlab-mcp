@@ -277,6 +277,184 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    def update_project(
+        self,
+        project_id: str | int,
+        name: str | None = None,
+        path: str | None = None,
+        description: str | None = None,
+        visibility: str | None = None,
+        default_branch: str | None = None,
+        topics: list[str] | None = None,
+        issues_enabled: bool | None = None,
+        merge_requests_enabled: bool | None = None,
+        wiki_enabled: bool | None = None,
+        snippets_enabled: bool | None = None,
+        archived: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update settings of an existing GitLab project.
+
+        Only fields explicitly provided (non-None) are sent in the update request.
+
+        Args:
+            project_id: Project ID (int) or path (str) in format 'namespace/project'
+            name: New project name (optional)
+            path: New project slug (optional)
+            description: New description (optional)
+            visibility: New visibility level - 'private', 'internal', 'public' (optional)
+            default_branch: New default branch name (optional)
+            topics: Replace topics list (optional)
+            issues_enabled: Toggle issues feature (optional)
+            merge_requests_enabled: Toggle merge requests feature (optional)
+            wiki_enabled: Toggle wiki feature (optional)
+            snippets_enabled: Toggle snippets feature (optional)
+            archived: Archive (True) or unarchive (False) the project (optional)
+
+        Returns:
+            Dictionary with updated project details
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user doesn't have permission to update project
+            GitLabAPIError: If no update fields are provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            update_data: dict[str, Any] = {}
+            if name is not None:
+                update_data["name"] = name
+            if path is not None:
+                update_data["path"] = path
+            if description is not None:
+                update_data["description"] = description
+            if visibility is not None:
+                update_data["visibility"] = visibility
+            if default_branch is not None:
+                update_data["default_branch"] = default_branch
+            if topics is not None:
+                update_data["topics"] = topics
+            if issues_enabled is not None:
+                update_data["issues_enabled"] = issues_enabled
+            if merge_requests_enabled is not None:
+                update_data["merge_requests_enabled"] = merge_requests_enabled
+            if wiki_enabled is not None:
+                update_data["wiki_enabled"] = wiki_enabled
+            if snippets_enabled is not None:
+                update_data["snippets_enabled"] = snippets_enabled
+            if archived is not None:
+                update_data["archived"] = archived
+
+            if not update_data:
+                raise GitLabAPIError("No update fields provided")
+
+            result = self._gitlab.projects.update(project_id, update_data)  # type: ignore
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_project(self, project_id: str | int) -> dict[str, str]:
+        """
+        Delete a GitLab project.
+
+        Note: On instances with delayed project deletion enabled, the project
+        is marked for deletion rather than removed immediately.
+
+        Args:
+            project_id: Project ID (int) or path (str) in format 'namespace/project'
+
+        Returns:
+            Dictionary {"status": "deleted", "project_id": "<id>"}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user doesn't have permission to delete project
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            self._gitlab.projects.delete(project_id)  # type: ignore
+            return {"status": "deleted", "project_id": str(project_id)}
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def fork_project(
+        self,
+        project_id: str | int,
+        namespace: str | None = None,
+        namespace_id: int | None = None,
+        namespace_path: str | None = None,
+        name: str | None = None,
+        path: str | None = None,
+        description: str | None = None,
+        visibility: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Fork a project to the current user's namespace or a specified group.
+
+        Provide AT MOST ONE of: namespace, namespace_id, namespace_path.
+        If none is provided, GitLab forks into the authenticated user's namespace.
+
+        Args:
+            project_id: Source project ID (int) or path (str)
+            namespace: Target namespace as ID or path (legacy parameter, optional)
+            namespace_id: Target namespace ID (optional)
+            namespace_path: Target namespace path (optional)
+            name: Custom name for the fork (optional)
+            path: Custom slug for the fork (optional)
+            description: Custom description for the fork (optional)
+            visibility: Fork visibility - 'private', 'internal', 'public' (optional)
+
+        Returns:
+            Dictionary with forked project details
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If source project doesn't exist
+            PermissionError: If user can't fork or can't create in target namespace
+            GitLabAPIError: If API call fails (e.g., fork already exists)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            fork_data: dict[str, Any] = {}
+            if namespace is not None:
+                fork_data["namespace"] = namespace
+            if namespace_id is not None:
+                fork_data["namespace_id"] = namespace_id
+            if namespace_path is not None:
+                fork_data["namespace_path"] = namespace_path
+            if name is not None:
+                fork_data["name"] = name
+            if path is not None:
+                fork_data["path"] = path
+            if description is not None:
+                fork_data["description"] = description
+            if visibility is not None:
+                fork_data["visibility"] = visibility
+
+            fork = project.forks.create(fork_data)
+            if hasattr(fork, "asdict"):
+                return fork.asdict()
+            return dict(fork.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,

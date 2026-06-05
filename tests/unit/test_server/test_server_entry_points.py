@@ -22,10 +22,10 @@ class TestToolDefinitions:
         assert isinstance(tool_defs, list)
 
     def test_get_tool_definitions_has_67_tools(self) -> None:
-        """Test that _get_tool_definitions returns exactly 88 tools."""
+        """Test that _get_tool_definitions returns exactly 91 tools."""
         tool_defs = _get_tool_definitions()
 
-        assert len(tool_defs) == 88
+        assert len(tool_defs) == 91
 
     def test_tool_definition_structure(self) -> None:
         """Test that each tool definition has correct structure."""

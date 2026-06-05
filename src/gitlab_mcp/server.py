@@ -260,6 +260,9 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "get_milestone": {"destructive": False, "readOnly": True},
     # Project tools - mutating
     "create_project": {"destructive": False, "readOnly": False},
+    "update_project": {"destructive": False, "readOnly": False},
+    "delete_project": {"destructive": True, "readOnly": False},
+    "fork_project": {"destructive": False, "readOnly": False},
     "create_milestone": {"destructive": False, "readOnly": False},
     "update_milestone": {"destructive": False, "readOnly": False},
     # Label tools - read-only
@@ -720,6 +723,21 @@ class GitLabMCPServer:
             "create_project",
             "Create a new project in GitLab",
             lambda **kwargs: tools.create_project(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_project",
+            "Update settings of an existing GitLab project",
+            lambda **kwargs: tools.update_project(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_project",
+            "Delete a GitLab project",
+            lambda **kwargs: tools.delete_project(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "fork_project",
+            "Fork a project to the user's namespace or a specified group",
+            lambda **kwargs: tools.fork_project(self.gitlab_client, **kwargs),
         )
         self.register_tool(
             "search_projects",
@@ -1879,6 +1897,103 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "initialize_with_readme": {
                     "type": "boolean",
                     "description": "Initialize project with a README.md (optional, default: false)",
+                },
+            },
+        ),
+        (
+            "update_project",
+            "Update settings of an existing GitLab project. Only fields explicitly provided are sent.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {"type": "string", "description": "New project name (optional)"},
+                "path": {"type": "string", "description": "New project slug (optional)"},
+                "description": {
+                    "type": "string",
+                    "description": "New description (optional)",
+                },
+                "visibility": {
+                    "type": "string",
+                    "description": "New visibility: 'private', 'internal', or 'public' (optional)",
+                },
+                "default_branch": {
+                    "type": "string",
+                    "description": "New default branch name (optional)",
+                },
+                "topics": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Replace topics list (optional)",
+                },
+                "issues_enabled": {
+                    "type": "boolean",
+                    "description": "Toggle issues feature (optional)",
+                },
+                "merge_requests_enabled": {
+                    "type": "boolean",
+                    "description": "Toggle merge requests feature (optional)",
+                },
+                "wiki_enabled": {
+                    "type": "boolean",
+                    "description": "Toggle wiki feature (optional)",
+                },
+                "snippets_enabled": {
+                    "type": "boolean",
+                    "description": "Toggle snippets feature (optional)",
+                },
+                "archived": {
+                    "type": "boolean",
+                    "description": "Archive (true) or unarchive (false) (optional)",
+                },
+            },
+        ),
+        (
+            "delete_project",
+            "Delete a GitLab project (or mark for deletion on instances with delayed deletion)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+            },
+        ),
+        (
+            "fork_project",
+            "Fork a project to the user's namespace or a specified group. Provide at most one of namespace, namespace_id, namespace_path.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": "Source " + DESC_PROJECT_ID,
+                },
+                "namespace": {
+                    "type": "string",
+                    "description": "Target namespace ID or path (legacy parameter, optional)",
+                },
+                "namespace_id": {
+                    "type": "integer",
+                    "description": "Target namespace ID (optional)",
+                },
+                "namespace_path": {
+                    "type": "string",
+                    "description": "Target namespace path (optional)",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Custom name for the fork (optional)",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Custom slug for the fork (optional)",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Custom description (optional)",
+                },
+                "visibility": {
+                    "type": "string",
+                    "description": "Fork visibility: 'private', 'internal', or 'public' (optional)",
                 },
             },
         ),
