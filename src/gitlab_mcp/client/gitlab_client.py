@@ -1878,6 +1878,672 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Webhooks (project + group) ----
+
+    @staticmethod
+    def _build_hook_data(
+        url: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        token: str | None = None,
+        enable_ssl_verification: bool | None = None,
+        push_events: bool | None = None,
+        push_events_branch_filter: str | None = None,
+        issues_events: bool | None = None,
+        confidential_issues_events: bool | None = None,
+        merge_requests_events: bool | None = None,
+        tag_push_events: bool | None = None,
+        note_events: bool | None = None,
+        confidential_note_events: bool | None = None,
+        job_events: bool | None = None,
+        pipeline_events: bool | None = None,
+        wiki_page_events: bool | None = None,
+        deployment_events: bool | None = None,
+        releases_events: bool | None = None,
+        feature_flag_events: bool | None = None,
+        subgroup_events: bool | None = None,
+    ) -> dict[str, Any]:
+        """Internal helper: build a payload dict for hook create/update.
+
+        Only fields explicitly provided (not None) are included. `subgroup_events`
+        is group-only and ignored by project hooks if not supported by GitLab.
+        """
+        data: dict[str, Any] = {}
+        if url is not None:
+            data["url"] = url
+        if name is not None:
+            data["name"] = name
+        if description is not None:
+            data["description"] = description
+        if token is not None:
+            data["token"] = token
+        if enable_ssl_verification is not None:
+            data["enable_ssl_verification"] = enable_ssl_verification
+        if push_events is not None:
+            data["push_events"] = push_events
+        if push_events_branch_filter is not None:
+            data["push_events_branch_filter"] = push_events_branch_filter
+        if issues_events is not None:
+            data["issues_events"] = issues_events
+        if confidential_issues_events is not None:
+            data["confidential_issues_events"] = confidential_issues_events
+        if merge_requests_events is not None:
+            data["merge_requests_events"] = merge_requests_events
+        if tag_push_events is not None:
+            data["tag_push_events"] = tag_push_events
+        if note_events is not None:
+            data["note_events"] = note_events
+        if confidential_note_events is not None:
+            data["confidential_note_events"] = confidential_note_events
+        if job_events is not None:
+            data["job_events"] = job_events
+        if pipeline_events is not None:
+            data["pipeline_events"] = pipeline_events
+        if wiki_page_events is not None:
+            data["wiki_page_events"] = wiki_page_events
+        if deployment_events is not None:
+            data["deployment_events"] = deployment_events
+        if releases_events is not None:
+            data["releases_events"] = releases_events
+        if feature_flag_events is not None:
+            data["feature_flag_events"] = feature_flag_events
+        if subgroup_events is not None:
+            data["subgroup_events"] = subgroup_events
+        return data
+
+    # ---- Project hooks ----
+
+    def list_project_hooks(
+        self,
+        project_id: str | int,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List webhooks of a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of project hook dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read hooks (maintainer+)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            hooks = project.hooks.list(page=page, per_page=per_page)
+            return [
+                h.asdict() if hasattr(h, "asdict") else dict(h.attributes)
+                for h in hooks
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_project_hook(
+        self,
+        project_id: str | int,
+        hook_id: int,
+    ) -> dict[str, Any]:
+        """
+        Get a single project webhook by ID.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            hook_id: Hook ID
+
+        Returns:
+            Project hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or hook doesn't exist
+            PermissionError: If user can't read hooks
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            hook = project.hooks.get(hook_id)
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def create_project_hook(
+        self,
+        project_id: str | int,
+        url: str,
+        name: str | None = None,
+        description: str | None = None,
+        token: str | None = None,
+        enable_ssl_verification: bool | None = None,
+        push_events: bool | None = None,
+        push_events_branch_filter: str | None = None,
+        issues_events: bool | None = None,
+        confidential_issues_events: bool | None = None,
+        merge_requests_events: bool | None = None,
+        tag_push_events: bool | None = None,
+        note_events: bool | None = None,
+        confidential_note_events: bool | None = None,
+        job_events: bool | None = None,
+        pipeline_events: bool | None = None,
+        wiki_page_events: bool | None = None,
+        deployment_events: bool | None = None,
+        releases_events: bool | None = None,
+        feature_flag_events: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a webhook on a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            url: URL to POST events to (required)
+            name: Webhook name (optional)
+            description: Webhook description (optional)
+            token: Secret token used to validate received payloads (optional)
+            enable_ssl_verification: Enable SSL verification when POSTing (optional)
+            push_events: Trigger on push events (optional)
+            push_events_branch_filter: Branch filter for push events (optional)
+            issues_events: Trigger on issue events (optional)
+            confidential_issues_events: Trigger on confidential issue events (optional)
+            merge_requests_events: Trigger on MR events (optional)
+            tag_push_events: Trigger on tag push events (optional)
+            note_events: Trigger on comment events (optional)
+            confidential_note_events: Trigger on confidential comment events (optional)
+            job_events: Trigger on job events (optional)
+            pipeline_events: Trigger on pipeline events (optional)
+            wiki_page_events: Trigger on wiki page events (optional)
+            deployment_events: Trigger on deployment events (optional)
+            releases_events: Trigger on release events (optional)
+            feature_flag_events: Trigger on feature flag events (optional)
+
+        Returns:
+            Created project hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't manage hooks (maintainer+)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data = self._build_hook_data(
+                url=url,
+                name=name,
+                description=description,
+                token=token,
+                enable_ssl_verification=enable_ssl_verification,
+                push_events=push_events,
+                push_events_branch_filter=push_events_branch_filter,
+                issues_events=issues_events,
+                confidential_issues_events=confidential_issues_events,
+                merge_requests_events=merge_requests_events,
+                tag_push_events=tag_push_events,
+                note_events=note_events,
+                confidential_note_events=confidential_note_events,
+                job_events=job_events,
+                pipeline_events=pipeline_events,
+                wiki_page_events=wiki_page_events,
+                deployment_events=deployment_events,
+                releases_events=releases_events,
+                feature_flag_events=feature_flag_events,
+            )
+            hook = project.hooks.create(data)
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_project_hook(
+        self,
+        project_id: str | int,
+        hook_id: int,
+        url: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        token: str | None = None,
+        enable_ssl_verification: bool | None = None,
+        push_events: bool | None = None,
+        push_events_branch_filter: str | None = None,
+        issues_events: bool | None = None,
+        confidential_issues_events: bool | None = None,
+        merge_requests_events: bool | None = None,
+        tag_push_events: bool | None = None,
+        note_events: bool | None = None,
+        confidential_note_events: bool | None = None,
+        job_events: bool | None = None,
+        pipeline_events: bool | None = None,
+        wiki_page_events: bool | None = None,
+        deployment_events: bool | None = None,
+        releases_events: bool | None = None,
+        feature_flag_events: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing project webhook. Only provided fields are sent.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            hook_id: Hook ID
+            (other args identical to create_project_hook; all optional)
+
+        Returns:
+            Updated project hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or hook doesn't exist
+            PermissionError: If user can't manage hooks
+            GitLabAPIError: If no fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            hook = project.hooks.get(hook_id)
+            data = self._build_hook_data(
+                url=url,
+                name=name,
+                description=description,
+                token=token,
+                enable_ssl_verification=enable_ssl_verification,
+                push_events=push_events,
+                push_events_branch_filter=push_events_branch_filter,
+                issues_events=issues_events,
+                confidential_issues_events=confidential_issues_events,
+                merge_requests_events=merge_requests_events,
+                tag_push_events=tag_push_events,
+                note_events=note_events,
+                confidential_note_events=confidential_note_events,
+                job_events=job_events,
+                pipeline_events=pipeline_events,
+                wiki_page_events=wiki_page_events,
+                deployment_events=deployment_events,
+                releases_events=releases_events,
+                feature_flag_events=feature_flag_events,
+            )
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            for k, v in data.items():
+                setattr(hook, k, v)
+            hook.save()
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_project_hook(
+        self,
+        project_id: str | int,
+        hook_id: int,
+    ) -> dict[str, Any]:
+        """
+        Delete a project webhook.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            hook_id: Hook ID
+
+        Returns:
+            Dictionary {"status": "deleted", "project_id": "<id>", "hook_id": <id>}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or hook doesn't exist
+            PermissionError: If user can't manage hooks
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            project.hooks.delete(hook_id)
+            return {
+                "status": "deleted",
+                "project_id": str(project_id),
+                "hook_id": hook_id,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def test_project_hook(
+        self,
+        project_id: str | int,
+        hook_id: int,
+        trigger: str,
+    ) -> dict[str, Any]:
+        """
+        Trigger a webhook test for a given event type.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            hook_id: Hook ID
+            trigger: Event name to simulate. Valid values include:
+                push_events, tag_push_events, note_events, issues_events,
+                confidential_issues_events, merge_requests_events, job_events,
+                pipeline_events, wiki_page_events, releases_events,
+                emoji_events, resource_access_token_events.
+
+        Returns:
+            Response dictionary from GitLab (typically a message and status)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or hook doesn't exist
+            PermissionError: If user can't manage hooks
+            GitLabAPIError: If API call fails (e.g., invalid trigger)
+        """
+        self._ensure_authenticated()
+
+        try:
+            # Use raw HTTP since python-gitlab's wrapper is inconsistent across
+            # versions for the test endpoint.
+            response = self._gitlab.http_post(  # type: ignore
+                f"/projects/{project_id}/hooks/{hook_id}/test/{trigger}"
+            )
+            if isinstance(response, dict):
+                return response
+            return {"status": "triggered", "trigger": trigger, "hook_id": hook_id}
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    # ---- Group hooks ----
+
+    def list_group_hooks(
+        self,
+        group_id: str | int,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List webhooks of a group.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of group hook dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group doesn't exist
+            PermissionError: If user can't read group hooks (owner+)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            hooks = group.hooks.list(page=page, per_page=per_page)
+            return [
+                h.asdict() if hasattr(h, "asdict") else dict(h.attributes)
+                for h in hooks
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_group_hook(
+        self,
+        group_id: str | int,
+        hook_id: int,
+    ) -> dict[str, Any]:
+        """
+        Get a single group webhook by ID.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            hook_id: Hook ID
+
+        Returns:
+            Group hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group or hook doesn't exist
+            PermissionError: If user can't read group hooks
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            hook = group.hooks.get(hook_id)
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def create_group_hook(
+        self,
+        group_id: str | int,
+        url: str,
+        name: str | None = None,
+        description: str | None = None,
+        token: str | None = None,
+        enable_ssl_verification: bool | None = None,
+        push_events: bool | None = None,
+        push_events_branch_filter: str | None = None,
+        issues_events: bool | None = None,
+        confidential_issues_events: bool | None = None,
+        merge_requests_events: bool | None = None,
+        tag_push_events: bool | None = None,
+        note_events: bool | None = None,
+        confidential_note_events: bool | None = None,
+        job_events: bool | None = None,
+        pipeline_events: bool | None = None,
+        wiki_page_events: bool | None = None,
+        deployment_events: bool | None = None,
+        releases_events: bool | None = None,
+        feature_flag_events: bool | None = None,
+        subgroup_events: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a webhook at the group level.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            url: URL to POST events to (required)
+            (other args identical to create_project_hook;
+            extra `subgroup_events` for subgroup creation/move/delete)
+
+        Returns:
+            Created group hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group doesn't exist
+            PermissionError: If user can't manage group hooks (owner+)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            data = self._build_hook_data(
+                url=url,
+                name=name,
+                description=description,
+                token=token,
+                enable_ssl_verification=enable_ssl_verification,
+                push_events=push_events,
+                push_events_branch_filter=push_events_branch_filter,
+                issues_events=issues_events,
+                confidential_issues_events=confidential_issues_events,
+                merge_requests_events=merge_requests_events,
+                tag_push_events=tag_push_events,
+                note_events=note_events,
+                confidential_note_events=confidential_note_events,
+                job_events=job_events,
+                pipeline_events=pipeline_events,
+                wiki_page_events=wiki_page_events,
+                deployment_events=deployment_events,
+                releases_events=releases_events,
+                feature_flag_events=feature_flag_events,
+                subgroup_events=subgroup_events,
+            )
+            hook = group.hooks.create(data)
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_group_hook(
+        self,
+        group_id: str | int,
+        hook_id: int,
+        url: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        token: str | None = None,
+        enable_ssl_verification: bool | None = None,
+        push_events: bool | None = None,
+        push_events_branch_filter: str | None = None,
+        issues_events: bool | None = None,
+        confidential_issues_events: bool | None = None,
+        merge_requests_events: bool | None = None,
+        tag_push_events: bool | None = None,
+        note_events: bool | None = None,
+        confidential_note_events: bool | None = None,
+        job_events: bool | None = None,
+        pipeline_events: bool | None = None,
+        wiki_page_events: bool | None = None,
+        deployment_events: bool | None = None,
+        releases_events: bool | None = None,
+        feature_flag_events: bool | None = None,
+        subgroup_events: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing group webhook. Only provided fields are sent.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            hook_id: Hook ID
+            (other args identical to create_group_hook; all optional)
+
+        Returns:
+            Updated group hook dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group or hook doesn't exist
+            PermissionError: If user can't manage group hooks
+            GitLabAPIError: If no fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            hook = group.hooks.get(hook_id)
+            data = self._build_hook_data(
+                url=url,
+                name=name,
+                description=description,
+                token=token,
+                enable_ssl_verification=enable_ssl_verification,
+                push_events=push_events,
+                push_events_branch_filter=push_events_branch_filter,
+                issues_events=issues_events,
+                confidential_issues_events=confidential_issues_events,
+                merge_requests_events=merge_requests_events,
+                tag_push_events=tag_push_events,
+                note_events=note_events,
+                confidential_note_events=confidential_note_events,
+                job_events=job_events,
+                pipeline_events=pipeline_events,
+                wiki_page_events=wiki_page_events,
+                deployment_events=deployment_events,
+                releases_events=releases_events,
+                feature_flag_events=feature_flag_events,
+                subgroup_events=subgroup_events,
+            )
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            for k, v in data.items():
+                setattr(hook, k, v)
+            hook.save()
+            if hasattr(hook, "asdict"):
+                return hook.asdict()
+            return dict(hook.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_group_hook(
+        self,
+        group_id: str | int,
+        hook_id: int,
+    ) -> dict[str, Any]:
+        """
+        Delete a group webhook.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            hook_id: Hook ID
+
+        Returns:
+            Dictionary {"status": "deleted", "group_id": "<id>", "hook_id": <id>}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group or hook doesn't exist
+            PermissionError: If user can't manage group hooks
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            group.hooks.delete(hook_id)
+            return {
+                "status": "deleted",
+                "group_id": str(group_id),
+                "hook_id": hook_id,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,

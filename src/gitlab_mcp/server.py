@@ -340,6 +340,19 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "search_globally": {"destructive": False, "readOnly": True},
     "search_in_group": {"destructive": False, "readOnly": True},
     "search_in_project": {"destructive": False, "readOnly": True},
+    # Webhooks - read-only
+    "list_project_hooks": {"destructive": False, "readOnly": True},
+    "get_project_hook": {"destructive": False, "readOnly": True},
+    "list_group_hooks": {"destructive": False, "readOnly": True},
+    "get_group_hook": {"destructive": False, "readOnly": True},
+    # Webhooks - mutating
+    "create_project_hook": {"destructive": False, "readOnly": False},
+    "update_project_hook": {"destructive": False, "readOnly": False},
+    "delete_project_hook": {"destructive": True, "readOnly": False},
+    "test_project_hook": {"destructive": False, "readOnly": False},
+    "create_group_hook": {"destructive": False, "readOnly": False},
+    "update_group_hook": {"destructive": False, "readOnly": False},
+    "delete_group_hook": {"destructive": True, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -1112,6 +1125,65 @@ class GitLabMCPServer:
             "search_in_project",
             "Search inside a project",
             lambda **kwargs: tools.search_in_project(self.gitlab_client, **kwargs),
+        )
+
+        # Webhooks (project)
+        self.register_tool(
+            "list_project_hooks",
+            "List webhooks of a project",
+            lambda **kwargs: tools.list_project_hooks(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_project_hook",
+            "Get a single project webhook by ID",
+            lambda **kwargs: tools.get_project_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "create_project_hook",
+            "Create a webhook on a project",
+            lambda **kwargs: tools.create_project_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_project_hook",
+            "Update an existing project webhook",
+            lambda **kwargs: tools.update_project_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_project_hook",
+            "Delete a project webhook",
+            lambda **kwargs: tools.delete_project_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "test_project_hook",
+            "Trigger a project webhook test for a given event type",
+            lambda **kwargs: tools.test_project_hook(self.gitlab_client, **kwargs),
+        )
+
+        # Webhooks (group)
+        self.register_tool(
+            "list_group_hooks",
+            "List webhooks of a group",
+            lambda **kwargs: tools.list_group_hooks(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_group_hook",
+            "Get a single group webhook by ID",
+            lambda **kwargs: tools.get_group_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "create_group_hook",
+            "Create a webhook at the group level",
+            lambda **kwargs: tools.create_group_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_group_hook",
+            "Update an existing group webhook",
+            lambda **kwargs: tools.update_group_hook(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_group_hook",
+            "Delete a group webhook",
+            lambda **kwargs: tools.delete_group_hook(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -3277,6 +3349,453 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "per_page": {
                     "type": "integer",
                     "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        # Webhooks (project + group) (11)
+        (
+            "list_project_hooks",
+            "List webhooks of a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_project_hook",
+            "Get a single project webhook by ID",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+            },
+        ),
+        (
+            "create_project_hook",
+            "Create a webhook on a project. All event booleans are optional.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "url": {
+                    "type": "string",
+                    "description": "URL to POST events to (required)",
+                },
+                "name": {"type": "string", "description": "Webhook name (optional)"},
+                "description": {
+                    "type": "string",
+                    "description": "Webhook description (optional)",
+                },
+                "token": {
+                    "type": "string",
+                    "description": "Secret token used to validate received payloads (optional)",
+                },
+                "enable_ssl_verification": {
+                    "type": "boolean",
+                    "description": "Enable SSL verification when POSTing (optional)",
+                },
+                "push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on push events (optional)",
+                },
+                "push_events_branch_filter": {
+                    "type": "string",
+                    "description": "Branch filter for push events (optional)",
+                },
+                "issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on issue events (optional)",
+                },
+                "confidential_issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential issue events (optional)",
+                },
+                "merge_requests_events": {
+                    "type": "boolean",
+                    "description": "Trigger on MR events (optional)",
+                },
+                "tag_push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on tag push events (optional)",
+                },
+                "note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on comment events (optional)",
+                },
+                "confidential_note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential comment events (optional)",
+                },
+                "job_events": {
+                    "type": "boolean",
+                    "description": "Trigger on job events (optional)",
+                },
+                "pipeline_events": {
+                    "type": "boolean",
+                    "description": "Trigger on pipeline events (optional)",
+                },
+                "wiki_page_events": {
+                    "type": "boolean",
+                    "description": "Trigger on wiki page events (optional)",
+                },
+                "deployment_events": {
+                    "type": "boolean",
+                    "description": "Trigger on deployment events (optional)",
+                },
+                "releases_events": {
+                    "type": "boolean",
+                    "description": "Trigger on release events (optional)",
+                },
+                "feature_flag_events": {
+                    "type": "boolean",
+                    "description": "Trigger on feature flag events (optional)",
+                },
+            },
+        ),
+        (
+            "update_project_hook",
+            "Update an existing project webhook (only provided fields are sent).",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+                "url": {"type": "string", "description": "New URL (optional)"},
+                "name": {"type": "string", "description": "Webhook name (optional)"},
+                "description": {
+                    "type": "string",
+                    "description": "Webhook description (optional)",
+                },
+                "token": {
+                    "type": "string",
+                    "description": "Secret token (optional)",
+                },
+                "enable_ssl_verification": {
+                    "type": "boolean",
+                    "description": "Enable SSL verification (optional)",
+                },
+                "push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on push events (optional)",
+                },
+                "push_events_branch_filter": {
+                    "type": "string",
+                    "description": "Branch filter for push events (optional)",
+                },
+                "issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on issue events (optional)",
+                },
+                "confidential_issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential issue events (optional)",
+                },
+                "merge_requests_events": {
+                    "type": "boolean",
+                    "description": "Trigger on MR events (optional)",
+                },
+                "tag_push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on tag push events (optional)",
+                },
+                "note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on comment events (optional)",
+                },
+                "confidential_note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential comment events (optional)",
+                },
+                "job_events": {
+                    "type": "boolean",
+                    "description": "Trigger on job events (optional)",
+                },
+                "pipeline_events": {
+                    "type": "boolean",
+                    "description": "Trigger on pipeline events (optional)",
+                },
+                "wiki_page_events": {
+                    "type": "boolean",
+                    "description": "Trigger on wiki page events (optional)",
+                },
+                "deployment_events": {
+                    "type": "boolean",
+                    "description": "Trigger on deployment events (optional)",
+                },
+                "releases_events": {
+                    "type": "boolean",
+                    "description": "Trigger on release events (optional)",
+                },
+                "feature_flag_events": {
+                    "type": "boolean",
+                    "description": "Trigger on feature flag events (optional)",
+                },
+            },
+        ),
+        (
+            "delete_project_hook",
+            "Delete a project webhook",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+            },
+        ),
+        (
+            "test_project_hook",
+            "Trigger a project webhook test for a given event type. Triggers: push_events, tag_push_events, note_events, issues_events, confidential_issues_events, merge_requests_events, job_events, pipeline_events, wiki_page_events, releases_events, emoji_events, resource_access_token_events.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+                "trigger": {
+                    "type": "string",
+                    "description": "Event name to simulate",
+                },
+            },
+        ),
+        (
+            "list_group_hooks",
+            "List webhooks of a group",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_group_hook",
+            "Get a single group webhook by ID",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+            },
+        ),
+        (
+            "create_group_hook",
+            "Create a webhook at the group level. All event booleans are optional. `subgroup_events` is group-only.",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "URL to POST events to (required)",
+                },
+                "name": {"type": "string", "description": "Webhook name (optional)"},
+                "description": {
+                    "type": "string",
+                    "description": "Webhook description (optional)",
+                },
+                "token": {
+                    "type": "string",
+                    "description": "Secret token (optional)",
+                },
+                "enable_ssl_verification": {
+                    "type": "boolean",
+                    "description": "Enable SSL verification (optional)",
+                },
+                "push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on push events (optional)",
+                },
+                "push_events_branch_filter": {
+                    "type": "string",
+                    "description": "Branch filter for push events (optional)",
+                },
+                "issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on issue events (optional)",
+                },
+                "confidential_issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential issue events (optional)",
+                },
+                "merge_requests_events": {
+                    "type": "boolean",
+                    "description": "Trigger on MR events (optional)",
+                },
+                "tag_push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on tag push events (optional)",
+                },
+                "note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on comment events (optional)",
+                },
+                "confidential_note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential comment events (optional)",
+                },
+                "job_events": {
+                    "type": "boolean",
+                    "description": "Trigger on job events (optional)",
+                },
+                "pipeline_events": {
+                    "type": "boolean",
+                    "description": "Trigger on pipeline events (optional)",
+                },
+                "wiki_page_events": {
+                    "type": "boolean",
+                    "description": "Trigger on wiki page events (optional)",
+                },
+                "deployment_events": {
+                    "type": "boolean",
+                    "description": "Trigger on deployment events (optional)",
+                },
+                "releases_events": {
+                    "type": "boolean",
+                    "description": "Trigger on release events (optional)",
+                },
+                "feature_flag_events": {
+                    "type": "boolean",
+                    "description": "Trigger on feature flag events (optional)",
+                },
+                "subgroup_events": {
+                    "type": "boolean",
+                    "description": "Trigger on subgroup events (group-only, optional)",
+                },
+            },
+        ),
+        (
+            "update_group_hook",
+            "Update an existing group webhook (only provided fields are sent).",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
+                },
+                "url": {"type": "string", "description": "New URL (optional)"},
+                "name": {"type": "string", "description": "Webhook name (optional)"},
+                "description": {
+                    "type": "string",
+                    "description": "Webhook description (optional)",
+                },
+                "token": {
+                    "type": "string",
+                    "description": "Secret token (optional)",
+                },
+                "enable_ssl_verification": {
+                    "type": "boolean",
+                    "description": "Enable SSL verification (optional)",
+                },
+                "push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on push events (optional)",
+                },
+                "push_events_branch_filter": {
+                    "type": "string",
+                    "description": "Branch filter for push events (optional)",
+                },
+                "issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on issue events (optional)",
+                },
+                "confidential_issues_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential issue events (optional)",
+                },
+                "merge_requests_events": {
+                    "type": "boolean",
+                    "description": "Trigger on MR events (optional)",
+                },
+                "tag_push_events": {
+                    "type": "boolean",
+                    "description": "Trigger on tag push events (optional)",
+                },
+                "note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on comment events (optional)",
+                },
+                "confidential_note_events": {
+                    "type": "boolean",
+                    "description": "Trigger on confidential comment events (optional)",
+                },
+                "job_events": {
+                    "type": "boolean",
+                    "description": "Trigger on job events (optional)",
+                },
+                "pipeline_events": {
+                    "type": "boolean",
+                    "description": "Trigger on pipeline events (optional)",
+                },
+                "wiki_page_events": {
+                    "type": "boolean",
+                    "description": "Trigger on wiki page events (optional)",
+                },
+                "deployment_events": {
+                    "type": "boolean",
+                    "description": "Trigger on deployment events (optional)",
+                },
+                "releases_events": {
+                    "type": "boolean",
+                    "description": "Trigger on release events (optional)",
+                },
+                "feature_flag_events": {
+                    "type": "boolean",
+                    "description": "Trigger on feature flag events (optional)",
+                },
+                "subgroup_events": {
+                    "type": "boolean",
+                    "description": "Trigger on subgroup events (group-only, optional)",
+                },
+            },
+        ),
+        (
+            "delete_group_hook",
+            "Delete a group webhook",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "hook_id": {
+                    "type": "integer",
+                    "description": "Hook ID",
                 },
             },
         ),
