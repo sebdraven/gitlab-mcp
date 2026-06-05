@@ -307,6 +307,14 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "create_project_variable": {"destructive": False, "readOnly": False},
     "update_project_variable": {"destructive": False, "readOnly": False},
     "delete_project_variable": {"destructive": True, "readOnly": False},
+    # Environments - read-only
+    "list_environments": {"destructive": False, "readOnly": True},
+    "get_environment": {"destructive": False, "readOnly": True},
+    # Environments - mutating
+    "create_environment": {"destructive": False, "readOnly": False},
+    "update_environment": {"destructive": False, "readOnly": False},
+    "delete_environment": {"destructive": True, "readOnly": False},
+    "stop_environment": {"destructive": False, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -944,6 +952,38 @@ class GitLabMCPServer:
             "delete_project_variable",
             "Delete a CI/CD project variable",
             lambda **kwargs: tools.delete_project_variable(self.gitlab_client, **kwargs),
+        )
+
+        # Environments (project-level)
+        self.register_tool(
+            "list_environments",
+            "List deployment environments of a project",
+            lambda **kwargs: tools.list_environments(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_environment",
+            "Get a single environment by ID",
+            lambda **kwargs: tools.get_environment(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "create_environment",
+            "Create a new environment",
+            lambda **kwargs: tools.create_environment(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_environment",
+            "Update an existing environment",
+            lambda **kwargs: tools.update_environment(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_environment",
+            "Delete an environment (must be stopped first)",
+            lambda **kwargs: tools.delete_environment(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "stop_environment",
+            "Stop an environment (reversible state transition)",
+            lambda **kwargs: tools.stop_environment(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -2554,6 +2594,117 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "filter_environment_scope": {
                     "type": "string",
                     "description": "Restrict deletion to a given env scope (optional, required when multiple variables share the same key)",
+                },
+            },
+        ),
+        # Environments (project-level) (6)
+        (
+            "list_environments",
+            "List deployment environments of a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Filter by exact environment name (optional)",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Filter by name substring, minimum 3 chars (optional)",
+                },
+                "states": {
+                    "type": "string",
+                    "description": "Filter by state: 'available', 'stopping', or 'stopped' (optional)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_environment",
+            "Get a single environment by ID",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "environment_id": {
+                    "type": "integer",
+                    "description": "Environment ID",
+                },
+            },
+        ),
+        (
+            "create_environment",
+            "Create a new environment",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {"type": "string", "description": "Environment name"},
+                "external_url": {
+                    "type": "string",
+                    "description": "External URL of the environment (optional)",
+                },
+                "tier": {
+                    "type": "string",
+                    "description": "Tier: 'production', 'staging', 'testing', 'development', or 'other' (optional, GitLab 16.0+)",
+                },
+            },
+        ),
+        (
+            "update_environment",
+            "Update an existing environment. Only fields explicitly provided are sent. Name is immutable.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "environment_id": {
+                    "type": "integer",
+                    "description": "Environment ID",
+                },
+                "external_url": {
+                    "type": "string",
+                    "description": "New external URL (optional)",
+                },
+                "tier": {
+                    "type": "string",
+                    "description": "New tier: 'production', 'staging', 'testing', 'development', or 'other' (optional)",
+                },
+            },
+        ),
+        (
+            "delete_environment",
+            "Delete an environment (must be stopped first)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "environment_id": {
+                    "type": "integer",
+                    "description": "Environment ID",
+                },
+            },
+        ),
+        (
+            "stop_environment",
+            "Stop an environment (reversible state transition)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "environment_id": {
+                    "type": "integer",
+                    "description": "Environment ID",
                 },
             },
         ),

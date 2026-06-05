@@ -24,6 +24,16 @@ Additionally, provides meta-tools for lazy loading (slim mode):
 # Context tools
 from gitlab_mcp.tools.context import get_current_context
 
+# Environments tools (project-level deployment environments)
+from gitlab_mcp.tools.environments import (
+    create_environment,
+    delete_environment,
+    get_environment,
+    list_environments,
+    stop_environment,
+    update_environment,
+)
+
 # Group tools
 from gitlab_mcp.tools.groups import (
     get_group,
@@ -285,6 +295,13 @@ __all__ = [
     "create_project_variable",
     "update_project_variable",
     "delete_project_variable",
+    # Environments (project-level)
+    "list_environments",
+    "get_environment",
+    "create_environment",
+    "update_environment",
+    "delete_environment",
+    "stop_environment",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",
