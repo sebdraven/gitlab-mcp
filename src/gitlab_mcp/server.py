@@ -322,6 +322,9 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "enable_project_runner": {"destructive": False, "readOnly": False},
     "disable_project_runner": {"destructive": False, "readOnly": False},
     "update_runner": {"destructive": False, "readOnly": False},
+    # CI Lint - read-only
+    "lint_ci_yaml": {"destructive": False, "readOnly": True},
+    "validate_project_ci_config": {"destructive": False, "readOnly": True},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -1018,6 +1021,18 @@ class GitLabMCPServer:
             "update_runner",
             "Update an existing runner's configuration",
             lambda **kwargs: tools.update_runner(self.gitlab_client, **kwargs),
+        )
+
+        # CI Lint
+        self.register_tool(
+            "lint_ci_yaml",
+            "Validate a GitLab CI/CD YAML configuration (globally or in a project context)",
+            lambda **kwargs: tools.lint_ci_yaml(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "validate_project_ci_config",
+            "Validate the current .gitlab-ci.yml of a project",
+            lambda **kwargs: tools.validate_project_ci_config(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -2843,6 +2858,59 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "maximum_timeout": {
                     "type": "integer",
                     "description": "Max job timeout in seconds (optional)",
+                },
+            },
+        ),
+        # CI Lint (2)
+        (
+            "lint_ci_yaml",
+            "Validate a GitLab CI/CD YAML configuration. With project_id, runs in project context (resolves includes and variables); without, uses the global lint.",
+            {
+                "content": {
+                    "type": "string",
+                    "description": "Raw YAML content to validate",
+                },
+                "project_id": {
+                    "type": "string",
+                    "description": "Project ID or path to use as lint context (optional)",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Simulate pipeline creation without persisting (optional, project-scoped only)",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag/SHA to resolve includes against (optional, project-scoped only)",
+                },
+                "include_jobs": {
+                    "type": "boolean",
+                    "description": "Include resolved jobs in the response (optional)",
+                },
+                "include_merged_yaml": {
+                    "type": "boolean",
+                    "description": "Include the merged YAML in the response (optional)",
+                },
+            },
+        ),
+        (
+            "validate_project_ci_config",
+            "Validate the current .gitlab-ci.yml of a project (no content to provide)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Simulate pipeline creation without persisting (optional)",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag/SHA to validate (optional, defaults to default branch)",
+                },
+                "include_jobs": {
+                    "type": "boolean",
+                    "description": "Include resolved jobs in the response (optional)",
                 },
             },
         ),

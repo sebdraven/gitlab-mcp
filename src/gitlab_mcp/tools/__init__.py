@@ -24,6 +24,12 @@ Additionally, provides meta-tools for lazy loading (slim mode):
 # Context tools
 from gitlab_mcp.tools.context import get_current_context
 
+# CI Lint tools
+from gitlab_mcp.tools.ci_lint import (
+    lint_ci_yaml,
+    validate_project_ci_config,
+)
+
 # Environments tools (project-level deployment environments)
 from gitlab_mcp.tools.environments import (
     create_environment,
@@ -317,6 +323,9 @@ __all__ = [
     "enable_project_runner",
     "disable_project_runner",
     "update_runner",
+    # CI Lint
+    "lint_ci_yaml",
+    "validate_project_ci_config",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

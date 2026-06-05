@@ -1204,6 +1204,123 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- CI Lint ----
+
+    def lint_ci_yaml(
+        self,
+        content: str,
+        project_id: str | int | None = None,
+        dry_run: bool | None = None,
+        ref: str | None = None,
+        include_jobs: bool | None = None,
+        include_merged_yaml: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Validate a GitLab CI/CD YAML configuration.
+
+        When `project_id` is provided, the lint runs in the context of that project,
+        which resolves `include:` directives and CI/CD variables. Without it, the
+        global lint endpoint is used and only the syntax is validated.
+
+        Args:
+            content: Raw YAML content to validate (required)
+            project_id: Project ID (int) or path (str) to use as lint context (optional)
+            dry_run: Simulate creating a pipeline without persisting it (optional,
+                project-scoped only)
+            ref: Branch/tag/SHA to resolve includes against (optional,
+                project-scoped only)
+            include_jobs: Include resolved jobs in the response (optional)
+            include_merged_yaml: Include the merged YAML in the response (optional)
+
+        Returns:
+            Lint result dictionary with at least:
+            - 'valid' (bool): whether the configuration is valid
+            - 'errors' (list[str]): syntax/validation errors
+            - 'warnings' (list[str]): non-blocking warnings
+            - optionally 'jobs', 'merged_yaml' if requested
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project_id is provided and project doesn't exist
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            payload: dict[str, Any] = {"content": content}
+            if include_jobs is not None:
+                payload["include_jobs"] = include_jobs
+            if include_merged_yaml is not None:
+                payload["include_merged_yaml"] = include_merged_yaml
+
+            if project_id is not None:
+                if dry_run is not None:
+                    payload["dry_run"] = dry_run
+                if ref is not None:
+                    payload["ref"] = ref
+                project = self._gitlab.projects.get(project_id)  # type: ignore
+                result = project.ci_lint.create(payload)
+            else:
+                result = self._gitlab.ci_lint.create(payload)  # type: ignore
+
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def validate_project_ci_config(
+        self,
+        project_id: str | int,
+        dry_run: bool | None = None,
+        ref: str | None = None,
+        include_jobs: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Validate the current `.gitlab-ci.yml` of a project (no content to provide).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            dry_run: Simulate creating a pipeline without persisting it (optional)
+            ref: Branch/tag/SHA to validate (optional, defaults to default branch)
+            include_jobs: Include resolved jobs in the response (optional)
+
+        Returns:
+            Lint result dictionary (same shape as lint_ci_yaml)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read the project's CI config
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {}
+            if dry_run is not None:
+                kwargs["dry_run"] = dry_run
+            if ref is not None:
+                kwargs["ref"] = ref
+            if include_jobs is not None:
+                kwargs["include_jobs"] = include_jobs
+
+            result = project.ci_lint.get(**kwargs)
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,
