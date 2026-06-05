@@ -151,6 +151,15 @@ from gitlab_mcp.tools.repositories import (
     update_file,
 )
 
+# Runner tools (project-level)
+from gitlab_mcp.tools.runners import (
+    disable_project_runner,
+    enable_project_runner,
+    get_runner,
+    list_project_runners,
+    update_runner,
+)
+
 # Snippet tools
 from gitlab_mcp.tools.snippets import (
     create_snippet,
@@ -302,6 +311,12 @@ __all__ = [
     "update_environment",
     "delete_environment",
     "stop_environment",
+    # Runners (project-level)
+    "list_project_runners",
+    "get_runner",
+    "enable_project_runner",
+    "disable_project_runner",
+    "update_runner",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

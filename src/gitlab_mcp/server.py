@@ -315,6 +315,13 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "update_environment": {"destructive": False, "readOnly": False},
     "delete_environment": {"destructive": True, "readOnly": False},
     "stop_environment": {"destructive": False, "readOnly": False},
+    # Runners - read-only
+    "list_project_runners": {"destructive": False, "readOnly": True},
+    "get_runner": {"destructive": False, "readOnly": True},
+    # Runners - mutating
+    "enable_project_runner": {"destructive": False, "readOnly": False},
+    "disable_project_runner": {"destructive": False, "readOnly": False},
+    "update_runner": {"destructive": False, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -984,6 +991,33 @@ class GitLabMCPServer:
             "stop_environment",
             "Stop an environment (reversible state transition)",
             lambda **kwargs: tools.stop_environment(self.gitlab_client, **kwargs),
+        )
+
+        # Runners (project-level)
+        self.register_tool(
+            "list_project_runners",
+            "List runners enabled for a project",
+            lambda **kwargs: tools.list_project_runners(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_runner",
+            "Get details of a single runner by ID",
+            lambda **kwargs: tools.get_runner(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "enable_project_runner",
+            "Enable an existing runner for a project",
+            lambda **kwargs: tools.enable_project_runner(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "disable_project_runner",
+            "Disable (disassociate) a runner from a project (reversible)",
+            lambda **kwargs: tools.disable_project_runner(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_runner",
+            "Update an existing runner's configuration",
+            lambda **kwargs: tools.update_runner(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -2705,6 +2739,110 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "environment_id": {
                     "type": "integer",
                     "description": "Environment ID",
+                },
+            },
+        ),
+        # Runners (project-level) (5)
+        (
+            "list_project_runners",
+            "List runners enabled for a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Filter by type: 'instance_type', 'group_type', 'project_type' (optional)",
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: 'online', 'offline', 'stale', 'never_contacted', 'active', 'paused' (optional)",
+                },
+                "tag_list": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Filter by tags (optional)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_runner",
+            "Get details of a single runner by ID",
+            {
+                "runner_id": {"type": "integer", "description": "Runner ID"},
+            },
+        ),
+        (
+            "enable_project_runner",
+            "Enable an existing runner for a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "runner_id": {
+                    "type": "integer",
+                    "description": "ID of an existing runner to enable for this project",
+                },
+            },
+        ),
+        (
+            "disable_project_runner",
+            "Disable (disassociate) a runner from a project (reversible)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "runner_id": {
+                    "type": "integer",
+                    "description": "Runner ID to disable for this project",
+                },
+            },
+        ),
+        (
+            "update_runner",
+            "Update an existing runner's configuration. Only fields explicitly provided are sent.",
+            {
+                "runner_id": {"type": "integer", "description": "Runner ID"},
+                "description": {
+                    "type": "string",
+                    "description": "New description (optional)",
+                },
+                "active": {
+                    "type": "boolean",
+                    "description": "Enable/disable runner (deprecated GitLab 14+, use 'paused') (optional)",
+                },
+                "paused": {
+                    "type": "boolean",
+                    "description": "Pause/unpause runner (optional, GitLab 14+)",
+                },
+                "tag_list": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Replace runner tags (optional)",
+                },
+                "run_untagged": {
+                    "type": "boolean",
+                    "description": "Allow runner to pick up untagged jobs (optional)",
+                },
+                "locked": {
+                    "type": "boolean",
+                    "description": "Lock runner to current projects (optional)",
+                },
+                "access_level": {
+                    "type": "string",
+                    "description": "'not_protected' or 'ref_protected' (optional)",
+                },
+                "maximum_timeout": {
+                    "type": "integer",
+                    "description": "Max job timeout in seconds (optional)",
                 },
             },
         ),

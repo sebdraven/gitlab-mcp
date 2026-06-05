@@ -186,6 +186,16 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "stop_environment",
         ],
     },
+    "runners": {
+        "description": "Project-level CI/CD runners",
+        "tools": [
+            "list_project_runners",
+            "get_runner",
+            "enable_project_runner",
+            "disable_project_runner",
+            "update_runner",
+        ],
+    },
 }
 
 
