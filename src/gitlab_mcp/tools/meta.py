@@ -203,6 +203,20 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "validate_project_ci_config",
         ],
     },
+    "protected_refs": {
+        "description": "Protected branches and tags governance",
+        "tools": [
+            "list_protected_branches",
+            "get_protected_branch",
+            "protect_branch",
+            "update_protected_branch",
+            "unprotect_branch",
+            "list_protected_tags",
+            "get_protected_tag",
+            "protect_tag",
+            "unprotect_tag",
+        ],
+    },
 }
 
 

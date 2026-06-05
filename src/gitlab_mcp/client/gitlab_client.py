@@ -1321,6 +1321,385 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Protected Branches ----
+
+    def list_protected_branches(
+        self,
+        project_id: str | int,
+        search: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List protected branches of a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            search: Filter branches by name substring (optional)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of protected branch dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read protected branches
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {"page": page, "per_page": per_page}
+            if search is not None:
+                kwargs["search"] = search
+            branches = project.protectedbranches.list(**kwargs)
+            return [
+                b.asdict() if hasattr(b, "asdict") else dict(b.attributes)
+                for b in branches
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_protected_branch(
+        self,
+        project_id: str | int,
+        name: str,
+    ) -> dict[str, Any]:
+        """
+        Get a single protected branch by name.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Protected branch name (supports wildcards used at protection time)
+
+        Returns:
+            Protected branch dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or protected branch doesn't exist
+            PermissionError: If user can't read protected branches
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            branch = project.protectedbranches.get(name)
+            if hasattr(branch, "asdict"):
+                return branch.asdict()
+            return dict(branch.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def protect_branch(
+        self,
+        project_id: str | int,
+        name: str,
+        push_access_level: int | None = None,
+        merge_access_level: int | None = None,
+        unprotect_access_level: int | None = None,
+        allow_force_push: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Protect a branch (or wildcard pattern).
+
+        Access levels: 0 (no one), 30 (developer), 40 (maintainer), 60 (admin).
+        `unprotect_access_level` accepts only 40 (maintainer) or 60 (admin).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Branch name or wildcard pattern (required, e.g. 'main', 'release/*')
+            push_access_level: Minimum role allowed to push (optional)
+            merge_access_level: Minimum role allowed to merge (optional)
+            unprotect_access_level: Minimum role allowed to unprotect (optional)
+            allow_force_push: Allow force push (optional, default false)
+
+        Returns:
+            Created protected branch dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't manage protected branches (maintainer+)
+            GitLabAPIError: If API call fails (e.g., branch already protected)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {"name": name}
+            if push_access_level is not None:
+                data["push_access_level"] = push_access_level
+            if merge_access_level is not None:
+                data["merge_access_level"] = merge_access_level
+            if unprotect_access_level is not None:
+                data["unprotect_access_level"] = unprotect_access_level
+            if allow_force_push is not None:
+                data["allow_force_push"] = allow_force_push
+
+            branch = project.protectedbranches.create(data)
+            if hasattr(branch, "asdict"):
+                return branch.asdict()
+            return dict(branch.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_protected_branch(
+        self,
+        project_id: str | int,
+        name: str,
+        push_access_level: int | None = None,
+        merge_access_level: int | None = None,
+        unprotect_access_level: int | None = None,
+        allow_force_push: bool | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing protected branch (GitLab 15.6+). Only fields explicitly
+        provided are sent.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Protected branch name
+            push_access_level: New minimum role allowed to push (optional)
+            merge_access_level: New minimum role allowed to merge (optional)
+            unprotect_access_level: New minimum role allowed to unprotect (optional)
+            allow_force_push: Allow force push (optional)
+
+        Returns:
+            Updated protected branch dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or protected branch doesn't exist
+            PermissionError: If user can't manage protected branches
+            GitLabAPIError: If no update fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {}
+            if push_access_level is not None:
+                data["push_access_level"] = push_access_level
+            if merge_access_level is not None:
+                data["merge_access_level"] = merge_access_level
+            if unprotect_access_level is not None:
+                data["unprotect_access_level"] = unprotect_access_level
+            if allow_force_push is not None:
+                data["allow_force_push"] = allow_force_push
+
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            result = project.protectedbranches.update(name, data)
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def unprotect_branch(
+        self,
+        project_id: str | int,
+        name: str,
+    ) -> dict[str, str]:
+        """
+        Remove protection from a branch (or wildcard pattern).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Protected branch name
+
+        Returns:
+            Dictionary {"status": "unprotected", "project_id": "<id>", "name": "<name>"}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or protected branch doesn't exist
+            PermissionError: If user can't manage protected branches
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            project.protectedbranches.delete(name)
+            return {
+                "status": "unprotected",
+                "project_id": str(project_id),
+                "name": name,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    # ---- Protected Tags ----
+
+    def list_protected_tags(
+        self,
+        project_id: str | int,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List protected tags of a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of protected tag dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read protected tags
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            tags = project.protectedtags.list(page=page, per_page=per_page)
+            return [
+                t.asdict() if hasattr(t, "asdict") else dict(t.attributes)
+                for t in tags
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_protected_tag(
+        self,
+        project_id: str | int,
+        name: str,
+    ) -> dict[str, Any]:
+        """
+        Get a single protected tag by name.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Protected tag name (supports wildcards used at protection time)
+
+        Returns:
+            Protected tag dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or protected tag doesn't exist
+            PermissionError: If user can't read protected tags
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            tag = project.protectedtags.get(name)
+            if hasattr(tag, "asdict"):
+                return tag.asdict()
+            return dict(tag.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def protect_tag(
+        self,
+        project_id: str | int,
+        name: str,
+        create_access_level: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        Protect a tag (or wildcard pattern).
+
+        Access levels: 0 (no one), 30 (developer), 40 (maintainer), 60 (admin).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Tag name or wildcard pattern (required, e.g. 'v*')
+            create_access_level: Minimum role allowed to create the tag (optional,
+                default 40 = maintainer)
+
+        Returns:
+            Created protected tag dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't manage protected tags (maintainer+)
+            GitLabAPIError: If API call fails (e.g., tag already protected)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {"name": name}
+            if create_access_level is not None:
+                data["create_access_level"] = create_access_level
+
+            tag = project.protectedtags.create(data)
+            if hasattr(tag, "asdict"):
+                return tag.asdict()
+            return dict(tag.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def unprotect_tag(
+        self,
+        project_id: str | int,
+        name: str,
+    ) -> dict[str, str]:
+        """
+        Remove protection from a tag (or wildcard pattern).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            name: Protected tag name
+
+        Returns:
+            Dictionary {"status": "unprotected", "project_id": "<id>", "name": "<name>"}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or protected tag doesn't exist
+            PermissionError: If user can't manage protected tags
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            project.protectedtags.delete(name)
+            return {
+                "status": "unprotected",
+                "project_id": str(project_id),
+                "name": name,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,

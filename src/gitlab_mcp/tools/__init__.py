@@ -128,6 +128,19 @@ from gitlab_mcp.tools.projects import (
     update_project,
 )
 
+# Protected refs tools (branches + tags)
+from gitlab_mcp.tools.protected_refs import (
+    get_protected_branch,
+    get_protected_tag,
+    list_protected_branches,
+    list_protected_tags,
+    protect_branch,
+    protect_tag,
+    unprotect_branch,
+    unprotect_tag,
+    update_protected_branch,
+)
+
 # Release tools
 from gitlab_mcp.tools.releases import (
     create_release,
@@ -326,6 +339,16 @@ __all__ = [
     # CI Lint
     "lint_ci_yaml",
     "validate_project_ci_config",
+    # Protected refs (branches + tags)
+    "list_protected_branches",
+    "get_protected_branch",
+    "protect_branch",
+    "update_protected_branch",
+    "unprotect_branch",
+    "list_protected_tags",
+    "get_protected_tag",
+    "protect_tag",
+    "unprotect_tag",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

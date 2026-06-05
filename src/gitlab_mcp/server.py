@@ -325,6 +325,17 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     # CI Lint - read-only
     "lint_ci_yaml": {"destructive": False, "readOnly": True},
     "validate_project_ci_config": {"destructive": False, "readOnly": True},
+    # Protected refs - read-only
+    "list_protected_branches": {"destructive": False, "readOnly": True},
+    "get_protected_branch": {"destructive": False, "readOnly": True},
+    "list_protected_tags": {"destructive": False, "readOnly": True},
+    "get_protected_tag": {"destructive": False, "readOnly": True},
+    # Protected refs - mutating
+    "protect_branch": {"destructive": False, "readOnly": False},
+    "update_protected_branch": {"destructive": False, "readOnly": False},
+    "unprotect_branch": {"destructive": False, "readOnly": False},
+    "protect_tag": {"destructive": False, "readOnly": False},
+    "unprotect_tag": {"destructive": False, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -1033,6 +1044,53 @@ class GitLabMCPServer:
             "validate_project_ci_config",
             "Validate the current .gitlab-ci.yml of a project",
             lambda **kwargs: tools.validate_project_ci_config(self.gitlab_client, **kwargs),
+        )
+
+        # Protected refs (branches + tags)
+        self.register_tool(
+            "list_protected_branches",
+            "List protected branches of a project",
+            lambda **kwargs: tools.list_protected_branches(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_protected_branch",
+            "Get a single protected branch by name",
+            lambda **kwargs: tools.get_protected_branch(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "protect_branch",
+            "Protect a branch (or wildcard pattern)",
+            lambda **kwargs: tools.protect_branch(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_protected_branch",
+            "Update an existing protected branch (GitLab 15.6+)",
+            lambda **kwargs: tools.update_protected_branch(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "unprotect_branch",
+            "Remove protection from a branch",
+            lambda **kwargs: tools.unprotect_branch(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "list_protected_tags",
+            "List protected tags of a project",
+            lambda **kwargs: tools.list_protected_tags(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_protected_tag",
+            "Get a single protected tag by name",
+            lambda **kwargs: tools.get_protected_tag(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "protect_tag",
+            "Protect a tag (or wildcard pattern)",
+            lambda **kwargs: tools.protect_tag(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "unprotect_tag",
+            "Remove protection from a tag",
+            lambda **kwargs: tools.unprotect_tag(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -2911,6 +2969,175 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "include_jobs": {
                     "type": "boolean",
                     "description": "Include resolved jobs in the response (optional)",
+                },
+            },
+        ),
+        # Protected refs (branches + tags) (9)
+        (
+            "list_protected_branches",
+            "List protected branches of a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Filter by name substring (optional)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_protected_branch",
+            "Get a single protected branch by name",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Protected branch name (wildcards supported)",
+                },
+            },
+        ),
+        (
+            "protect_branch",
+            "Protect a branch (or wildcard pattern). Access levels: 0 (no one), 30 (developer), 40 (maintainer), 60 (admin).",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Branch name or wildcard (e.g. 'main', 'release/*')",
+                },
+                "push_access_level": {
+                    "type": "integer",
+                    "description": "Minimum role allowed to push: 0/30/40/60 (optional)",
+                },
+                "merge_access_level": {
+                    "type": "integer",
+                    "description": "Minimum role allowed to merge: 0/30/40/60 (optional)",
+                },
+                "unprotect_access_level": {
+                    "type": "integer",
+                    "description": "Minimum role allowed to unprotect: 40 or 60 (optional)",
+                },
+                "allow_force_push": {
+                    "type": "boolean",
+                    "description": "Allow force push (optional, default false)",
+                },
+            },
+        ),
+        (
+            "update_protected_branch",
+            "Update an existing protected branch (GitLab 15.6+). Only fields explicitly provided are sent.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Protected branch name",
+                },
+                "push_access_level": {
+                    "type": "integer",
+                    "description": "New minimum role to push: 0/30/40/60 (optional)",
+                },
+                "merge_access_level": {
+                    "type": "integer",
+                    "description": "New minimum role to merge: 0/30/40/60 (optional)",
+                },
+                "unprotect_access_level": {
+                    "type": "integer",
+                    "description": "New minimum role to unprotect: 40 or 60 (optional)",
+                },
+                "allow_force_push": {
+                    "type": "boolean",
+                    "description": "Allow force push (optional)",
+                },
+            },
+        ),
+        (
+            "unprotect_branch",
+            "Remove protection from a branch (or wildcard pattern)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Protected branch name",
+                },
+            },
+        ),
+        (
+            "list_protected_tags",
+            "List protected tags of a project",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_protected_tag",
+            "Get a single protected tag by name",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Protected tag name (wildcards supported)",
+                },
+            },
+        ),
+        (
+            "protect_tag",
+            "Protect a tag (or wildcard pattern). Access levels: 0 (no one), 30 (developer), 40 (maintainer), 60 (admin).",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Tag name or wildcard (e.g. 'v*')",
+                },
+                "create_access_level": {
+                    "type": "integer",
+                    "description": "Minimum role allowed to create the tag: 0/30/40/60 (optional, default 40)",
+                },
+            },
+        ),
+        (
+            "unprotect_tag",
+            "Remove protection from a tag (or wildcard pattern)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Protected tag name",
                 },
             },
         ),
