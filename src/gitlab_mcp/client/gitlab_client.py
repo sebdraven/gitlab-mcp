@@ -455,6 +455,266 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- CI/CD Variables (project-level) ----
+
+    def list_project_variables(
+        self,
+        project_id: str | int,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List CI/CD variables defined at the project level.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of variable dictionaries (key, value, variable_type, protected,
+            masked, raw, environment_scope, description)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read project variables (typically maintainer+)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            variables = project.variables.list(page=page, per_page=per_page)
+            return [
+                v.asdict() if hasattr(v, "asdict") else dict(v.attributes)
+                for v in variables
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_project_variable(
+        self,
+        project_id: str | int,
+        key: str,
+        filter_environment_scope: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get a single CI/CD variable by key.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            key: Variable key (e.g., 'DEPLOY_TOKEN')
+            filter_environment_scope: Restrict lookup to a given environment scope
+                (required when multiple variables share the same key across scopes)
+
+        Returns:
+            Variable dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or variable doesn't exist
+            PermissionError: If user can't read project variables
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {}
+            if filter_environment_scope is not None:
+                kwargs["filter"] = {"environment_scope": filter_environment_scope}
+            variable = project.variables.get(key, **kwargs)
+            if hasattr(variable, "asdict"):
+                return variable.asdict()
+            return dict(variable.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def create_project_variable(
+        self,
+        project_id: str | int,
+        key: str,
+        value: str,
+        variable_type: str | None = None,
+        protected: bool | None = None,
+        masked: bool | None = None,
+        raw: bool | None = None,
+        environment_scope: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new CI/CD variable at the project level.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            key: Variable key (required, A-Z 0-9 _ only)
+            value: Variable value (required)
+            variable_type: 'env_var' (default) or 'file' (optional)
+            protected: Restrict to protected branches/tags (optional, default false)
+            masked: Mask value in job logs (optional, default false)
+            raw: Disable variable expansion (optional, default false)
+            environment_scope: Restrict to an environment (optional, default '*')
+            description: Variable description (optional, GitLab 16.2+)
+
+        Returns:
+            Created variable dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't manage project variables
+            GitLabAPIError: If API call fails (e.g., invalid key, masking constraints)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {"key": key, "value": value}
+            if variable_type is not None:
+                data["variable_type"] = variable_type
+            if protected is not None:
+                data["protected"] = protected
+            if masked is not None:
+                data["masked"] = masked
+            if raw is not None:
+                data["raw"] = raw
+            if environment_scope is not None:
+                data["environment_scope"] = environment_scope
+            if description is not None:
+                data["description"] = description
+
+            variable = project.variables.create(data)
+            if hasattr(variable, "asdict"):
+                return variable.asdict()
+            return dict(variable.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_project_variable(
+        self,
+        project_id: str | int,
+        key: str,
+        value: str | None = None,
+        variable_type: str | None = None,
+        protected: bool | None = None,
+        masked: bool | None = None,
+        raw: bool | None = None,
+        environment_scope: str | None = None,
+        description: str | None = None,
+        filter_environment_scope: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing CI/CD variable. Only fields explicitly provided are sent.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            key: Variable key to update
+            value: New value (optional)
+            variable_type: 'env_var' or 'file' (optional)
+            protected: Restrict to protected branches/tags (optional)
+            masked: Mask value in job logs (optional)
+            raw: Disable variable expansion (optional)
+            environment_scope: Change environment scope (optional)
+            description: New description (optional)
+            filter_environment_scope: Restrict update to a given env scope
+                (required when multiple variables share the same key across scopes)
+
+        Returns:
+            Updated variable dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or variable doesn't exist
+            PermissionError: If user can't manage project variables
+            GitLabAPIError: If no update fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            data: dict[str, Any] = {}
+            if value is not None:
+                data["value"] = value
+            if variable_type is not None:
+                data["variable_type"] = variable_type
+            if protected is not None:
+                data["protected"] = protected
+            if masked is not None:
+                data["masked"] = masked
+            if raw is not None:
+                data["raw"] = raw
+            if environment_scope is not None:
+                data["environment_scope"] = environment_scope
+            if description is not None:
+                data["description"] = description
+
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            kwargs: dict[str, Any] = {}
+            if filter_environment_scope is not None:
+                kwargs["filter"] = {"environment_scope": filter_environment_scope}
+
+            result = project.variables.update(key, data, **kwargs)
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_project_variable(
+        self,
+        project_id: str | int,
+        key: str,
+        filter_environment_scope: str | None = None,
+    ) -> dict[str, str]:
+        """
+        Delete a CI/CD variable.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            key: Variable key to delete
+            filter_environment_scope: Restrict deletion to a given env scope
+                (required when multiple variables share the same key across scopes)
+
+        Returns:
+            Dictionary {"status": "deleted", "project_id": "<id>", "key": "<key>"}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or variable doesn't exist
+            PermissionError: If user can't manage project variables
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {}
+            if filter_environment_scope is not None:
+                kwargs["filter"] = {"environment_scope": filter_environment_scope}
+            project.variables.delete(key, **kwargs)
+            return {
+                "status": "deleted",
+                "project_id": str(project_id),
+                "key": key,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,

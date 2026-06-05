@@ -300,6 +300,13 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "list_groups": {"destructive": False, "readOnly": True},
     "get_group": {"destructive": False, "readOnly": True},
     "list_group_members": {"destructive": False, "readOnly": True},
+    # CI/CD Variables - read-only
+    "list_project_variables": {"destructive": False, "readOnly": True},
+    "get_project_variable": {"destructive": False, "readOnly": True},
+    # CI/CD Variables - mutating
+    "create_project_variable": {"destructive": False, "readOnly": False},
+    "update_project_variable": {"destructive": False, "readOnly": False},
+    "delete_project_variable": {"destructive": True, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -910,6 +917,33 @@ class GitLabMCPServer:
             "list_group_members",
             "List members of a group",
             lambda **kwargs: tools.list_group_members(self.gitlab_client, **kwargs),
+        )
+
+        # CI/CD Variables (project-level)
+        self.register_tool(
+            "list_project_variables",
+            "List CI/CD variables defined at the project level",
+            lambda **kwargs: tools.list_project_variables(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_project_variable",
+            "Get a single CI/CD project variable by key",
+            lambda **kwargs: tools.get_project_variable(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "create_project_variable",
+            "Create a new CI/CD variable at the project level",
+            lambda **kwargs: tools.create_project_variable(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_project_variable",
+            "Update an existing CI/CD project variable",
+            lambda **kwargs: tools.update_project_variable(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_project_variable",
+            "Delete a CI/CD project variable",
+            lambda **kwargs: tools.delete_project_variable(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -2396,6 +2430,131 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
             "List members of a group",
             {
                 "group_id": {"type": "string", "description": "Group ID or path"},
+            },
+        ),
+        # CI/CD Variables (project-level) (5)
+        (
+            "list_project_variables",
+            "List CI/CD variables defined at the project level",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_project_variable",
+            "Get a single CI/CD project variable by key",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "key": {"type": "string", "description": "Variable key"},
+                "filter_environment_scope": {
+                    "type": "string",
+                    "description": "Restrict lookup to a given environment scope (optional, required when multiple variables share the same key)",
+                },
+            },
+        ),
+        (
+            "create_project_variable",
+            "Create a new CI/CD variable at the project level",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Variable key (A-Z 0-9 _ only)",
+                },
+                "value": {"type": "string", "description": "Variable value"},
+                "variable_type": {
+                    "type": "string",
+                    "description": "'env_var' (default) or 'file' (optional)",
+                },
+                "protected": {
+                    "type": "boolean",
+                    "description": "Restrict to protected branches/tags (optional, default false)",
+                },
+                "masked": {
+                    "type": "boolean",
+                    "description": "Mask value in job logs (optional, default false)",
+                },
+                "raw": {
+                    "type": "boolean",
+                    "description": "Disable variable expansion (optional, default false)",
+                },
+                "environment_scope": {
+                    "type": "string",
+                    "description": "Restrict to an environment (optional, default '*')",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Variable description (optional, GitLab 16.2+)",
+                },
+            },
+        ),
+        (
+            "update_project_variable",
+            "Update an existing CI/CD project variable. Only fields explicitly provided are sent.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "key": {"type": "string", "description": "Variable key to update"},
+                "value": {"type": "string", "description": "New value (optional)"},
+                "variable_type": {
+                    "type": "string",
+                    "description": "'env_var' or 'file' (optional)",
+                },
+                "protected": {
+                    "type": "boolean",
+                    "description": "Restrict to protected branches/tags (optional)",
+                },
+                "masked": {
+                    "type": "boolean",
+                    "description": "Mask value in job logs (optional)",
+                },
+                "raw": {
+                    "type": "boolean",
+                    "description": "Disable variable expansion (optional)",
+                },
+                "environment_scope": {
+                    "type": "string",
+                    "description": "Change environment scope (optional)",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "New description (optional)",
+                },
+                "filter_environment_scope": {
+                    "type": "string",
+                    "description": "Restrict update to a given env scope (optional, required when multiple variables share the same key)",
+                },
+            },
+        ),
+        (
+            "delete_project_variable",
+            "Delete a CI/CD project variable",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "key": {"type": "string", "description": "Variable key to delete"},
+                "filter_environment_scope": {
+                    "type": "string",
+                    "description": "Restrict deletion to a given env scope (optional, required when multiple variables share the same key)",
+                },
             },
         ),
     ]
