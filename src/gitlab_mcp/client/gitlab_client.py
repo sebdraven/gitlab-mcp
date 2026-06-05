@@ -2544,6 +2544,304 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Merge Request Discussions (threaded notes + resolve) ----
+
+    def list_merge_request_discussions(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List threaded discussions on a merge request.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of discussion dictionaries. Each discussion contains
+            `id` (string hash), `individual_note` (bool), and `notes` (list).
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or MR doesn't exist
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            discussions = mr.discussions.list(page=page, per_page=per_page)
+            return [
+                d.asdict() if hasattr(d, "asdict") else dict(d.attributes)
+                for d in discussions
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_merge_request_discussion(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        discussion_id: str,
+    ) -> dict[str, Any]:
+        """
+        Get a single MR discussion by its ID.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            discussion_id: Discussion ID (string hash)
+
+        Returns:
+            Discussion dictionary including all notes in the thread
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project, MR, or discussion doesn't exist
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            discussion = mr.discussions.get(discussion_id)
+            if hasattr(discussion, "asdict"):
+                return discussion.asdict()
+            return dict(discussion.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def create_merge_request_discussion(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        body: str,
+        position: dict[str, Any] | None = None,
+        commit_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Create a new threaded discussion on a merge request.
+
+        If `position` is provided, the discussion is anchored to a specific line
+        in the diff (inline review comment). Otherwise it's a regular threaded
+        comment.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            body: Comment body (required, supports Markdown)
+            position: Optional dict for diff-line comments. Required keys:
+                `base_sha`, `start_sha`, `head_sha`, `position_type` ('text' or
+                'image'), `new_path`, `old_path`. Optional: `new_line`,
+                `old_line`.
+            commit_id: Optional commit SHA to anchor the discussion to.
+
+        Returns:
+            Created discussion dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or MR doesn't exist
+            PermissionError: If user can't comment on the MR
+            GitLabAPIError: If API call fails (e.g., invalid position)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            data: dict[str, Any] = {"body": body}
+            if position is not None:
+                data["position"] = position
+            if commit_id is not None:
+                data["commit_id"] = commit_id
+            discussion = mr.discussions.create(data)
+            if hasattr(discussion, "asdict"):
+                return discussion.asdict()
+            return dict(discussion.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def add_note_to_merge_request_discussion(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        discussion_id: str,
+        body: str,
+    ) -> dict[str, Any]:
+        """
+        Reply to an existing MR discussion by adding a note to its thread.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            discussion_id: Discussion ID (string hash)
+            body: Note body (required, supports Markdown)
+
+        Returns:
+            Created note dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project, MR, or discussion doesn't exist
+            PermissionError: If user can't comment on the MR
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            discussion = mr.discussions.get(discussion_id)
+            note = discussion.notes.create({"body": body})
+            if hasattr(note, "asdict"):
+                return note.asdict()
+            return dict(note.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def resolve_merge_request_discussion(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        discussion_id: str,
+        resolved: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Mark an MR discussion as resolved or unresolved.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            discussion_id: Discussion ID (string hash)
+            resolved: True to resolve, False to unresolve (default True)
+
+        Returns:
+            Updated discussion dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project, MR, or discussion doesn't exist
+            PermissionError: If user can't resolve discussions
+            GitLabAPIError: If API call fails (e.g., discussion is not
+                resolvable, like an issue discussion)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            discussion = mr.discussions.get(discussion_id)
+            discussion.resolved = resolved
+            discussion.save()
+            if hasattr(discussion, "asdict"):
+                return discussion.asdict()
+            return dict(discussion.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_merge_request_note(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        note_id: int,
+        body: str,
+    ) -> dict[str, Any]:
+        """
+        Update the body of an existing MR note (comment).
+
+        Works for both flat notes and notes inside a threaded discussion.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            note_id: Note ID (int)
+            body: New note body (required)
+
+        Returns:
+            Updated note dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project, MR, or note doesn't exist
+            PermissionError: If user can't edit the note (typically only the
+                author can)
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            note = mr.notes.get(note_id)
+            note.body = body
+            note.save()
+            if hasattr(note, "asdict"):
+                return note.asdict()
+            return dict(note.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def delete_merge_request_note(
+        self,
+        project_id: str | int,
+        merge_request_iid: int,
+        note_id: int,
+    ) -> dict[str, Any]:
+        """
+        Delete an MR note (comment).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            merge_request_iid: MR internal ID (iid)
+            note_id: Note ID (int)
+
+        Returns:
+            Dictionary {"status": "deleted", "project_id": "<id>",
+                "merge_request_iid": <iid>, "note_id": <id>}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project, MR, or note doesn't exist
+            PermissionError: If user can't delete the note
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            mr = project.mergerequests.get(merge_request_iid)
+            mr.notes.delete(note_id)
+            return {
+                "status": "deleted",
+                "project_id": str(project_id),
+                "merge_request_iid": merge_request_iid,
+                "note_id": note_id,
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,
