@@ -59,8 +59,8 @@ class TestServerLifecycle:
         server.register_all_tools()
         tools = await server.list_tools()
 
-        # Should have 107 tools (102 + 5 runners)
-        assert len(tools) == 107
+        # Should have 109 tools (107 + 2 CI lint)
+        assert len(tools) == 109
 
         # Each tool should have name and description
         for tool in tools:
@@ -112,9 +112,9 @@ class TestServerToolRegistration:
         assert server._tools["test_tool"]["function"] == dummy_tool
 
     def test_register_all_tools_creates_67_tools(self, server):
-        """Test that register_all_tools creates all 107 tools."""
+        """Test that register_all_tools creates all 109 tools."""
         server.register_all_tools()
-        assert len(server._tools) == 107
+        assert len(server._tools) == 109
 
     @pytest.mark.asyncio
     async def test_registered_tools_are_callable(self, server):

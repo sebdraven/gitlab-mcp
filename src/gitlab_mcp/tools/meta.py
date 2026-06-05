@@ -196,6 +196,13 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "update_runner",
         ],
     },
+    "ci_lint": {
+        "description": "CI/CD YAML validation",
+        "tools": [
+            "lint_ci_yaml",
+            "validate_project_ci_config",
+        ],
+    },
 }
 
 
