@@ -336,6 +336,10 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "unprotect_branch": {"destructive": False, "readOnly": False},
     "protect_tag": {"destructive": False, "readOnly": False},
     "unprotect_tag": {"destructive": False, "readOnly": False},
+    # Search - read-only
+    "search_globally": {"destructive": False, "readOnly": True},
+    "search_in_group": {"destructive": False, "readOnly": True},
+    "search_in_project": {"destructive": False, "readOnly": True},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -1091,6 +1095,23 @@ class GitLabMCPServer:
             "unprotect_tag",
             "Remove protection from a tag",
             lambda **kwargs: tools.unprotect_tag(self.gitlab_client, **kwargs),
+        )
+
+        # Search (global / group / project)
+        self.register_tool(
+            "search_globally",
+            "Search across the entire GitLab instance",
+            lambda **kwargs: tools.search_globally(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "search_in_group",
+            "Search inside a group",
+            lambda **kwargs: tools.search_in_group(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "search_in_project",
+            "Search inside a project",
+            lambda **kwargs: tools.search_in_project(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -3138,6 +3159,124 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "name": {
                     "type": "string",
                     "description": "Protected tag name",
+                },
+            },
+        ),
+        # Search (global / group / project) (3)
+        (
+            "search_globally",
+            "Search across the GitLab instance. Free scopes: projects, issues, merge_requests, milestones, snippet_titles, users. Premium: blobs, commits, wiki_blobs, notes.",
+            {
+                "scope": {
+                    "type": "string",
+                    "description": "Search scope",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Search query string",
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Filter by state: 'opened' or 'closed' (issues/MRs, optional)",
+                },
+                "confidential": {
+                    "type": "boolean",
+                    "description": "Filter confidential issues (optional)",
+                },
+                "order_by": {
+                    "type": "string",
+                    "description": "'created_at' (optional)",
+                },
+                "sort": {
+                    "type": "string",
+                    "description": "'asc' or 'desc' (optional)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "search_in_group",
+            "Search inside a group. Free scopes: projects, issues, merge_requests, milestones, users. Premium: blobs, commits, wiki_blobs, notes.",
+            {
+                "group_id": {
+                    "type": "string",
+                    "description": "Group ID or path",
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Search scope",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Search query string",
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Filter by state: 'opened' or 'closed' (optional)",
+                },
+                "confidential": {
+                    "type": "boolean",
+                    "description": "Filter confidential issues (optional)",
+                },
+                "order_by": {
+                    "type": "string",
+                    "description": "'created_at' (optional)",
+                },
+                "sort": {
+                    "type": "string",
+                    "description": "'asc' or 'desc' (optional)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "search_in_project",
+            "Search inside a project. Scopes: blobs, commits, issues, merge_requests, milestones, notes, users, wiki_blobs.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Search scope",
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Search query string",
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Filter by state: 'opened' or 'closed' (optional)",
+                },
+                "confidential": {
+                    "type": "boolean",
+                    "description": "Filter confidential issues (optional)",
+                },
+                "order_by": {
+                    "type": "string",
+                    "description": "'created_at' (optional)",
+                },
+                "sort": {
+                    "type": "string",
+                    "description": "'asc' or 'desc' (optional)",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag for blob/commit scopes (optional, default: default branch)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
                 },
             },
         ),

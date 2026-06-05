@@ -179,6 +179,13 @@ from gitlab_mcp.tools.runners import (
     update_runner,
 )
 
+# Search tools (cross-projects, group-scoped, project-scoped)
+from gitlab_mcp.tools.search import (
+    search_globally,
+    search_in_group,
+    search_in_project,
+)
+
 # Snippet tools
 from gitlab_mcp.tools.snippets import (
     create_snippet,
@@ -349,6 +356,10 @@ __all__ = [
     "get_protected_tag",
     "protect_tag",
     "unprotect_tag",
+    # Search (global / group / project)
+    "search_globally",
+    "search_in_group",
+    "search_in_project",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

@@ -1700,6 +1700,184 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Search ----
+
+    @staticmethod
+    def _build_search_kwargs(
+        state: str | None,
+        confidential: bool | None,
+        order_by: str | None,
+        sort: str | None,
+        ref: str | None,
+        page: int,
+        per_page: int,
+    ) -> dict[str, Any]:
+        """Internal helper: build optional kwargs for search endpoints."""
+        kwargs: dict[str, Any] = {"page": page, "per_page": per_page}
+        if state is not None:
+            kwargs["state"] = state
+        if confidential is not None:
+            kwargs["confidential"] = confidential
+        if order_by is not None:
+            kwargs["order_by"] = order_by
+        if sort is not None:
+            kwargs["sort"] = sort
+        if ref is not None:
+            kwargs["ref"] = ref
+        return kwargs
+
+    def search_globally(
+        self,
+        scope: str,
+        search: str,
+        state: str | None = None,
+        confidential: bool | None = None,
+        order_by: str | None = None,
+        sort: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        Search across the GitLab instance.
+
+        Scopes (Free): projects, issues, merge_requests, milestones,
+            snippet_titles, users.
+        Scopes (Premium): blobs, commits, wiki_blobs, notes.
+
+        Args:
+            scope: Search scope (required)
+            search: Search query string (required)
+            state: Filter by state - 'opened' or 'closed' (issues/MRs, optional)
+            confidential: Filter confidential issues (optional)
+            order_by: 'created_at' (optional)
+            sort: 'asc' or 'desc' (optional)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of result dictionaries (shape depends on scope)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            GitLabAPIError: If API call fails (e.g., invalid scope)
+        """
+        self._ensure_authenticated()
+
+        try:
+            kwargs = self._build_search_kwargs(
+                state, confidential, order_by, sort, None, page, per_page
+            )
+            results = self._gitlab.search(scope, search, **kwargs)  # type: ignore
+            return list(results)
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def search_in_group(
+        self,
+        group_id: str | int,
+        scope: str,
+        search: str,
+        state: str | None = None,
+        confidential: bool | None = None,
+        order_by: str | None = None,
+        sort: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        Search inside a group.
+
+        Scopes (Free): projects, issues, merge_requests, milestones, users.
+        Scopes (Premium): blobs, commits, wiki_blobs, notes.
+
+        Args:
+            group_id: Group ID (int) or path (str)
+            scope: Search scope (required)
+            search: Search query string (required)
+            state: Filter by state - 'opened' or 'closed' (optional)
+            confidential: Filter confidential issues (optional)
+            order_by: 'created_at' (optional)
+            sort: 'asc' or 'desc' (optional)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of result dictionaries (shape depends on scope)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If group doesn't exist
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            group = self._gitlab.groups.get(group_id)  # type: ignore
+            kwargs = self._build_search_kwargs(
+                state, confidential, order_by, sort, None, page, per_page
+            )
+            results = group.search(scope, search, **kwargs)
+            return list(results)
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def search_in_project(
+        self,
+        project_id: str | int,
+        scope: str,
+        search: str,
+        state: str | None = None,
+        confidential: bool | None = None,
+        order_by: str | None = None,
+        sort: str | None = None,
+        ref: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        Search inside a project.
+
+        Scopes: blobs, commits, issues, merge_requests, milestones, notes,
+            users, wiki_blobs.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            scope: Search scope (required)
+            search: Search query string (required)
+            state: Filter by state - 'opened' or 'closed' (optional)
+            confidential: Filter confidential issues (optional)
+            order_by: 'created_at' (optional)
+            sort: 'asc' or 'desc' (optional)
+            ref: Branch/tag for blob/commit scopes (optional, default: default branch)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of result dictionaries (shape depends on scope)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs = self._build_search_kwargs(
+                state, confidential, order_by, sort, ref, page, per_page
+            )
+            results = project.search(scope, search, **kwargs)
+            return list(results)
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,
