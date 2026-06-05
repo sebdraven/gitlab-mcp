@@ -105,6 +105,123 @@ async def create_project(
     )
 
 
+async def update_project(
+    client: GitLabClient,
+    project_id: str | int,
+    name: str | None = None,
+    path: str | None = None,
+    description: str | None = None,
+    visibility: str | None = None,
+    default_branch: str | None = None,
+    topics: list[str] | None = None,
+    issues_enabled: bool | None = None,
+    merge_requests_enabled: bool | None = None,
+    wiki_enabled: bool | None = None,
+    snippets_enabled: bool | None = None,
+    archived: bool | None = None,
+) -> dict[str, Any]:
+    """
+    Update settings of an existing GitLab project.
+
+    Only fields explicitly provided (non-None) are sent.
+
+    Args:
+        client: Authenticated GitLabClient instance
+        project_id: Project ID (int) or path (str)
+        name: New project name (optional)
+        path: New project slug (optional)
+        description: New description (optional)
+        visibility: 'private', 'internal', or 'public' (optional)
+        default_branch: New default branch name (optional)
+        topics: Replace topics list (optional)
+        issues_enabled: Toggle issues feature (optional)
+        merge_requests_enabled: Toggle merge requests feature (optional)
+        wiki_enabled: Toggle wiki feature (optional)
+        snippets_enabled: Toggle snippets feature (optional)
+        archived: Archive (True) or unarchive (False) (optional)
+
+    Returns:
+        Dictionary with updated project details
+    """
+    await asyncio.sleep(0)  # Allow event loop to process other tasks
+    return client.update_project(
+        project_id=project_id,
+        name=name,
+        path=path,
+        description=description,
+        visibility=visibility,
+        default_branch=default_branch,
+        topics=topics,
+        issues_enabled=issues_enabled,
+        merge_requests_enabled=merge_requests_enabled,
+        wiki_enabled=wiki_enabled,
+        snippets_enabled=snippets_enabled,
+        archived=archived,
+    )
+
+
+async def delete_project(
+    client: GitLabClient,
+    project_id: str | int,
+) -> dict[str, str]:
+    """
+    Delete a GitLab project.
+
+    Args:
+        client: Authenticated GitLabClient instance
+        project_id: Project ID (int) or path (str)
+
+    Returns:
+        Dictionary {"status": "deleted", "project_id": "<id>"}
+    """
+    await asyncio.sleep(0)  # Allow event loop to process other tasks
+    return client.delete_project(project_id=project_id)
+
+
+async def fork_project(
+    client: GitLabClient,
+    project_id: str | int,
+    namespace: str | None = None,
+    namespace_id: int | None = None,
+    namespace_path: str | None = None,
+    name: str | None = None,
+    path: str | None = None,
+    description: str | None = None,
+    visibility: str | None = None,
+) -> dict[str, Any]:
+    """
+    Fork a project to the current user's namespace or a specified group.
+
+    Provide AT MOST ONE of: namespace, namespace_id, namespace_path.
+    If none is provided, GitLab forks into the authenticated user's namespace.
+
+    Args:
+        client: Authenticated GitLabClient instance
+        project_id: Source project ID (int) or path (str)
+        namespace: Target namespace ID or path (legacy parameter, optional)
+        namespace_id: Target namespace ID (optional)
+        namespace_path: Target namespace path (optional)
+        name: Custom name for the fork (optional)
+        path: Custom slug for the fork (optional)
+        description: Custom description (optional)
+        visibility: Fork visibility (optional)
+
+    Returns:
+        Dictionary with forked project details
+    """
+    await asyncio.sleep(0)  # Allow event loop to process other tasks
+    return client.fork_project(
+        project_id=project_id,
+        namespace=namespace,
+        namespace_id=namespace_id,
+        namespace_path=namespace_path,
+        name=name,
+        path=path,
+        description=description,
+        visibility=visibility,
+    )
+
+
 async def search_projects(
     client: GitLabClient,
     search_term: str,

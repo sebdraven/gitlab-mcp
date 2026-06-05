@@ -201,15 +201,15 @@ class TestServerToolRegistration:
         assert callable(server.register_all_tools)
 
     def test_register_all_tools_adds_67_tools(self, server):
-        """Test that register_all_tools registers all 88 tools."""
+        """Test that register_all_tools registers all 91 tools."""
         # Initially no tools
         assert len(server._tools) == 0
 
         # Register all tools
         server.register_all_tools()
 
-        # Should have 88 tools registered
-        assert len(server._tools) == 88
+        # Should have 91 tools registered
+        assert len(server._tools) == 91
 
     def test_all_registered_tools_have_descriptions(self, server):
         """Test that all registered tools have descriptions."""
@@ -280,14 +280,14 @@ class TestToolCounts:
     """Test that we have the expected number of tools in each category."""
 
     def test_total_tool_count(self):
-        """Test that __all__ has 67 total exports."""
-        # Total MCP tools: 67
+        """Test that __all__ has 95 total exports."""
+        # Total MCP tools: 91
         # Context: 1 (get_current_context)
         # Repos: 3 (list_repository_tree, get_file_contents, search_code)
         # Issues: 3 (list_issues, get_issue, create_issue)
         # MRs: 12 (list, get, create, update, merge, close, reopen, approve, unapprove, changes, commits, pipelines)
         # Pipelines: 14 (6 pipeline ops + 7 job ops + 1 variables)
-        # Projects: 10 (4 project ops + 1 members + 1 stats + 4 milestone ops)
+        # Projects: 13 (7 project ops [list, get, create, update, delete, fork, search] + 1 members + 1 stats + 4 milestone ops)
         # Labels: 4 (list, create, update, delete)
         # Wikis: 5 (list, get, create, update, delete)
         # Snippets: 5 (list, get, create, update, delete)
@@ -295,5 +295,5 @@ class TestToolCounts:
         # Users: 3 (get, search, list_projects)
         # Groups: 3 (list, get, list_members)
         # Meta-tools (slim mode): 4 (discover_tools, get_tool_schema, execute_tool, TOOL_CATEGORIES)
-        # Total: 92 tools (88 regular + 4 meta-tools)
-        assert len(tools.__all__) == 92
+        # Total: 95 tools (91 regular + 4 meta-tools)
+        assert len(tools.__all__) == 95

@@ -99,6 +99,8 @@ from gitlab_mcp.tools.pipelines import (
 from gitlab_mcp.tools.projects import (
     create_milestone,
     create_project,
+    delete_project,
+    fork_project,
     get_milestone,
     get_project,
     get_project_statistics,
@@ -107,6 +109,7 @@ from gitlab_mcp.tools.projects import (
     list_projects,
     search_projects,
     update_milestone,
+    update_project,
 )
 
 # Release tools
@@ -226,6 +229,9 @@ __all__ = [
     "list_projects",
     "get_project",
     "create_project",
+    "update_project",
+    "delete_project",
+    "fork_project",
     "search_projects",
     "list_project_members",
     "get_project_statistics",
