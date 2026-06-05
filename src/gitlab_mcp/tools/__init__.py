@@ -24,6 +24,17 @@ Additionally, provides meta-tools for lazy loading (slim mode):
 # Context tools
 from gitlab_mcp.tools.context import get_current_context
 
+# Merge Request discussion tools (threads + resolve)
+from gitlab_mcp.tools.discussions import (
+    add_note_to_merge_request_discussion,
+    create_merge_request_discussion,
+    delete_merge_request_note,
+    get_merge_request_discussion,
+    list_merge_request_discussions,
+    resolve_merge_request_discussion,
+    update_merge_request_note,
+)
+
 # CI Lint tools
 from gitlab_mcp.tools.ci_lint import (
     lint_ci_yaml,
@@ -387,6 +398,14 @@ __all__ = [
     "create_group_hook",
     "update_group_hook",
     "delete_group_hook",
+    # MR discussions (threaded notes + resolve)
+    "list_merge_request_discussions",
+    "get_merge_request_discussion",
+    "create_merge_request_discussion",
+    "add_note_to_merge_request_discussion",
+    "resolve_merge_request_discussion",
+    "update_merge_request_note",
+    "delete_merge_request_note",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",

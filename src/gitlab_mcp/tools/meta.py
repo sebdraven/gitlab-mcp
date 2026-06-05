@@ -241,6 +241,18 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "delete_group_hook",
         ],
     },
+    "discussions": {
+        "description": "Merge request threaded discussions and resolution",
+        "tools": [
+            "list_merge_request_discussions",
+            "get_merge_request_discussion",
+            "create_merge_request_discussion",
+            "add_note_to_merge_request_discussion",
+            "resolve_merge_request_discussion",
+            "update_merge_request_note",
+            "delete_merge_request_note",
+        ],
+    },
 }
 
 

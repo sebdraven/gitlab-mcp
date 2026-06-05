@@ -353,6 +353,15 @@ TOOL_ANNOTATIONS: dict[str, dict[str, bool]] = {
     "create_group_hook": {"destructive": False, "readOnly": False},
     "update_group_hook": {"destructive": False, "readOnly": False},
     "delete_group_hook": {"destructive": True, "readOnly": False},
+    # MR discussions - read-only
+    "list_merge_request_discussions": {"destructive": False, "readOnly": True},
+    "get_merge_request_discussion": {"destructive": False, "readOnly": True},
+    # MR discussions - mutating
+    "create_merge_request_discussion": {"destructive": False, "readOnly": False},
+    "add_note_to_merge_request_discussion": {"destructive": False, "readOnly": False},
+    "resolve_merge_request_discussion": {"destructive": False, "readOnly": False},
+    "update_merge_request_note": {"destructive": False, "readOnly": False},
+    "delete_merge_request_note": {"destructive": True, "readOnly": False},
 }
 
 # Tool icons for visual metadata in MCP SDK v1.25.0
@@ -1184,6 +1193,43 @@ class GitLabMCPServer:
             "delete_group_hook",
             "Delete a group webhook",
             lambda **kwargs: tools.delete_group_hook(self.gitlab_client, **kwargs),
+        )
+
+        # MR discussions (threaded notes + resolve)
+        self.register_tool(
+            "list_merge_request_discussions",
+            "List threaded discussions on a merge request",
+            lambda **kwargs: tools.list_merge_request_discussions(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "get_merge_request_discussion",
+            "Get a single MR discussion by its ID",
+            lambda **kwargs: tools.get_merge_request_discussion(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "create_merge_request_discussion",
+            "Create a new threaded discussion on a merge request (optionally anchored to a diff line via position)",
+            lambda **kwargs: tools.create_merge_request_discussion(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "add_note_to_merge_request_discussion",
+            "Reply to an existing MR discussion",
+            lambda **kwargs: tools.add_note_to_merge_request_discussion(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "resolve_merge_request_discussion",
+            "Mark an MR discussion as resolved or unresolved",
+            lambda **kwargs: tools.resolve_merge_request_discussion(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "update_merge_request_note",
+            "Update the body of an existing MR note",
+            lambda **kwargs: tools.update_merge_request_note(self.gitlab_client, **kwargs),
+        )
+        self.register_tool(
+            "delete_merge_request_note",
+            "Delete an MR note",
+            lambda **kwargs: tools.delete_merge_request_note(self.gitlab_client, **kwargs),
         )
 
     async def startup(self) -> None:
@@ -3796,6 +3842,154 @@ def _get_tool_definitions() -> list[tuple[str, str, dict[str, Any]]]:
                 "hook_id": {
                     "type": "integer",
                     "description": "Hook ID",
+                },
+            },
+        ),
+        # MR discussions (threaded notes + resolve) (7)
+        (
+            "list_merge_request_discussions",
+            "List threaded discussions on a merge request",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "page": {"type": "integer", "description": DESC_PAGE},
+                "per_page": {
+                    "type": "integer",
+                    "description": DESC_PER_PAGE,
+                },
+            },
+        ),
+        (
+            "get_merge_request_discussion",
+            "Get a single MR discussion by its ID",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "discussion_id": {
+                    "type": "string",
+                    "description": "Discussion ID (string hash)",
+                },
+            },
+        ),
+        (
+            "create_merge_request_discussion",
+            "Create a new threaded discussion on a merge request. Provide `position` to anchor to a diff line (inline review comment); omit for a flat threaded comment.",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Comment body (supports Markdown)",
+                },
+                "position": {
+                    "type": "object",
+                    "description": "Optional position for diff-line comment. Required keys: base_sha, start_sha, head_sha, position_type ('text' or 'image'), new_path, old_path. Optional: new_line, old_line.",
+                },
+                "commit_id": {
+                    "type": "string",
+                    "description": "Optional commit SHA to anchor the discussion to",
+                },
+            },
+        ),
+        (
+            "add_note_to_merge_request_discussion",
+            "Reply to an existing MR discussion by adding a note to its thread",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "discussion_id": {
+                    "type": "string",
+                    "description": "Discussion ID (string hash)",
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Note body (supports Markdown)",
+                },
+            },
+        ),
+        (
+            "resolve_merge_request_discussion",
+            "Mark an MR discussion as resolved (default) or unresolved",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "discussion_id": {
+                    "type": "string",
+                    "description": "Discussion ID (string hash)",
+                },
+                "resolved": {
+                    "type": "boolean",
+                    "description": "True to resolve, False to unresolve (default True)",
+                },
+            },
+        ),
+        (
+            "update_merge_request_note",
+            "Update the body of an existing MR note (works for both flat notes and notes in a threaded discussion)",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "note_id": {
+                    "type": "integer",
+                    "description": "Note ID",
+                },
+                "body": {
+                    "type": "string",
+                    "description": "New note body (supports Markdown)",
+                },
+            },
+        ),
+        (
+            "delete_merge_request_note",
+            "Delete an MR note",
+            {
+                "project_id": {
+                    "type": "string",
+                    "description": DESC_PROJECT_ID,
+                },
+                "merge_request_iid": {
+                    "type": "integer",
+                    "description": "MR internal ID (iid)",
+                },
+                "note_id": {
+                    "type": "integer",
+                    "description": "Note ID",
                 },
             },
         ),
