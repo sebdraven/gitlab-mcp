@@ -165,6 +165,16 @@ TOOL_CATEGORIES: dict[str, dict[str, Any]] = {
             "list_group_members",
         ],
     },
+    "variables": {
+        "description": "CI/CD project-level variable management",
+        "tools": [
+            "list_project_variables",
+            "get_project_variable",
+            "create_project_variable",
+            "update_project_variable",
+            "delete_project_variable",
+        ],
+    },
 }
 
 

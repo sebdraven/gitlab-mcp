@@ -157,6 +157,15 @@ from gitlab_mcp.tools.users import (
     search_users,
 )
 
+# Variables tools (CI/CD project variables)
+from gitlab_mcp.tools.variables import (
+    create_project_variable,
+    delete_project_variable,
+    get_project_variable,
+    list_project_variables,
+    update_project_variable,
+)
+
 # Wiki tools
 from gitlab_mcp.tools.wikis import (
     create_wiki_page,
@@ -270,6 +279,12 @@ __all__ = [
     "list_groups",
     "get_group",
     "list_group_members",
+    # Variables (CI/CD project-level)
+    "list_project_variables",
+    "get_project_variable",
+    "create_project_variable",
+    "update_project_variable",
+    "delete_project_variable",
     # Meta-tools (slim mode)
     "discover_tools",
     "get_tool_schema",
