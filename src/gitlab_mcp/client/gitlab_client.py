@@ -974,6 +974,236 @@ class GitLabClient:
         except Exception as e:
             raise self._convert_exception(e) from e
 
+    # ---- Runners ----
+
+    def list_project_runners(
+        self,
+        project_id: str | int,
+        type: str | None = None,
+        status: str | None = None,
+        tag_list: list[str] | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> list[dict[str, Any]]:
+        """
+        List runners enabled for a project (project-owned + shared).
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            type: Filter by type - 'instance_type', 'group_type', 'project_type' (optional)
+            status: Filter by status - 'online', 'offline', 'stale', 'never_contacted',
+                'active', 'paused' (optional)
+            tag_list: Filter by tags (optional)
+            page: Page number for pagination
+            per_page: Results per page (max 100)
+
+        Returns:
+            List of runner dictionaries
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project doesn't exist
+            PermissionError: If user can't read project runners
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            kwargs: dict[str, Any] = {"page": page, "per_page": per_page}
+            if type is not None:
+                kwargs["type"] = type
+            if status is not None:
+                kwargs["status"] = status
+            if tag_list is not None:
+                kwargs["tag_list"] = ",".join(tag_list)
+            runners = project.runners.list(**kwargs)
+            return [
+                r.asdict() if hasattr(r, "asdict") else dict(r.attributes)
+                for r in runners
+            ]
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def get_runner(
+        self,
+        runner_id: int,
+    ) -> dict[str, Any]:
+        """
+        Get details of a single runner by ID.
+
+        Requires admin privileges OR ownership/maintainer access
+        on a project the runner is associated with.
+
+        Args:
+            runner_id: Runner ID
+
+        Returns:
+            Runner dictionary with full details (token never included)
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If runner doesn't exist
+            PermissionError: If user can't read runner details
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            runner = self._gitlab.runners.get(runner_id)  # type: ignore
+            if hasattr(runner, "asdict"):
+                return runner.asdict()
+            return dict(runner.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def enable_project_runner(
+        self,
+        project_id: str | int,
+        runner_id: int,
+    ) -> dict[str, Any]:
+        """
+        Enable an existing runner for a project.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            runner_id: ID of an existing runner to enable for this project
+
+        Returns:
+            Runner dictionary as enabled for the project
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or runner doesn't exist
+            PermissionError: If user can't manage project runners (maintainer+)
+            GitLabAPIError: If API call fails (e.g., runner already enabled)
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            runner = project.runners.create({"runner_id": runner_id})
+            if hasattr(runner, "asdict"):
+                return runner.asdict()
+            return dict(runner.attributes)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def disable_project_runner(
+        self,
+        project_id: str | int,
+        runner_id: int,
+    ) -> dict[str, str]:
+        """
+        Disable (disassociate) a runner from a project.
+
+        The runner instance is NOT deleted, just removed from the project.
+        Action is reversible via enable_project_runner.
+
+        Args:
+            project_id: Project ID (int) or path (str)
+            runner_id: Runner ID to disable for this project
+
+        Returns:
+            Dictionary {"status": "disabled", "project_id": "<id>", "runner_id": <id>}
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If project or runner doesn't exist
+            PermissionError: If user can't manage project runners
+            GitLabAPIError: If API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            project = self._gitlab.projects.get(project_id)  # type: ignore
+            project.runners.delete(runner_id)
+            return {
+                "status": "disabled",
+                "project_id": str(project_id),
+                "runner_id": str(runner_id),
+            }
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
+    def update_runner(
+        self,
+        runner_id: int,
+        description: str | None = None,
+        active: bool | None = None,
+        paused: bool | None = None,
+        tag_list: list[str] | None = None,
+        run_untagged: bool | None = None,
+        locked: bool | None = None,
+        access_level: str | None = None,
+        maximum_timeout: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        Update an existing runner's configuration. Only fields explicitly provided are sent.
+
+        Args:
+            runner_id: Runner ID
+            description: New description (optional)
+            active: Enable/disable runner (deprecated GitLab 14+, use `paused`) (optional)
+            paused: Pause/unpause runner (optional, GitLab 14+)
+            tag_list: Replace runner tags (optional)
+            run_untagged: Allow runner to pick up untagged jobs (optional)
+            locked: Lock runner to current projects (optional)
+            access_level: 'not_protected' or 'ref_protected' (optional)
+            maximum_timeout: Max job timeout in seconds (optional)
+
+        Returns:
+            Updated runner dictionary
+
+        Raises:
+            AuthenticationError: If not authenticated
+            NotFoundError: If runner doesn't exist
+            PermissionError: If user can't manage this runner
+            GitLabAPIError: If no update fields provided or API call fails
+        """
+        self._ensure_authenticated()
+
+        try:
+            data: dict[str, Any] = {}
+            if description is not None:
+                data["description"] = description
+            if active is not None:
+                data["active"] = active
+            if paused is not None:
+                data["paused"] = paused
+            if tag_list is not None:
+                data["tag_list"] = tag_list
+            if run_untagged is not None:
+                data["run_untagged"] = run_untagged
+            if locked is not None:
+                data["locked"] = locked
+            if access_level is not None:
+                data["access_level"] = access_level
+            if maximum_timeout is not None:
+                data["maximum_timeout"] = maximum_timeout
+
+            if not data:
+                raise GitLabAPIError("No update fields provided")
+
+            result = self._gitlab.runners.update(runner_id, data)  # type: ignore
+            if isinstance(result, dict):
+                return result
+            if hasattr(result, "asdict"):
+                return result.asdict()
+            return dict(result)  # type: ignore
+        except GitlabAuthenticationError as e:
+            raise AuthenticationError(ERR_AUTH_REQUIRED) from e
+        except Exception as e:
+            raise self._convert_exception(e) from e
+
     def list_branches(
         self,
         project_id: str | int,
